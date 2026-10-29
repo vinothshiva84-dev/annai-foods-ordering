@@ -27,38 +27,51 @@ const MENU = [
   }
 ];
 
+const COLLECTION_ADDRESS =
+  "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
+
 export default function Home() {
   const [quantities, setQuantities] = useState({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
 
-  const total = MENU.reduce(
-    (sum, item) =>
-      sum + item.price * (quantities[item.name] || 0),
+  const selectedItems = MENU.filter(
+    item => (quantities[item.name] || 0) > 0
+  );
+
+  const total = selectedItems.reduce(
+    (sum, item) => sum + item.price * quantities[item.name],
     0
   );
 
-  const itemCount = Object.values(quantities).reduce(
-    (sum, qty) => sum + qty,
+  const itemCount = selectedItems.reduce(
+    (sum, item) => sum + quantities[item.name],
     0
   );
 
-  const idiyappamPlates =
-    MENU.reduce((sum, item) => {
-      const qty = quantities[item.name] || 0;
-
-      if (item.type === "idiyappam") return sum + qty;
-      if (item.type === "combo") return sum + qty * 2;
-
+  const idiyappamPlates = selectedItems.reduce(
+    (sum, item) => {
+      if (item.type === "idiyappam") {
+        return sum + quantities[item.name];
+      }
+      if (item.type === "combo") {
+        return sum + quantities[item.name] * 2;
+      }
       return sum;
-    }, 0);
+    },
+    0
+  );
 
   function changeQuantity(name, amount) {
-    setQuantities((previous) => ({
-      ...previous,
-      [name]: Math.max(0, (previous[name] || 0) + amount)
-    }));
+    setQuantities(previous => {
+      const next = Math.max(
+        0,
+        (previous[name] || 0) + amount
+      );
+
+      return { ...previous, [name]: next };
+    });
     setError("");
   }
 
@@ -73,8 +86,8 @@ export default function Home() {
       return;
     }
 
-    if (itemCount === 0) {
-      setError("Please select your food.");
+    if (selectedItems.length === 0) {
+      setError("Please select food for your cart.");
       return;
     }
 
@@ -83,142 +96,119 @@ export default function Home() {
       return;
     }
 
-    if (new Date().getHours() >= 12) {
+    const now = new Date();
+    const southAfricaTime = new Date(
+      now.toLocaleString("en-US", {
+        timeZone: "Africa/Johannesburg"
+      })
+    );
+
+    if (
+      southAfricaTime.getHours() >= 12
+    ) {
       setError("Orders must be placed before 12:00 PM.");
       return;
     }
 
-    const orderLines = MENU
-      .filter((item) => quantities[item.name] > 0)
-      .map((item) => {
-        const qty = quantities[item.name];
-        return `${item.name} x ${qty} = R${item.price * qty}`;
-      });
+    const orderLines = selectedItems.map(item =>
+      `${item.name} x ${quantities[item.name]} = R${item.price * quantities[item.name]}`
+    );
 
     const message = [
-      "ANNAl FOODS - NEW ORDER",
+      "ANNAI FOODS - NEW ORDER",
       "",
       `Customer: ${customer}`,
-      `Customer WhatsApp: ${phone}`,
+      `WhatsApp: ${phone}`,
       "",
-      "ORDER DETAILS:",
+      "MY ORDER:",
       ...orderLines,
       "",
-      `Idiyappam plates: ${idiyappamPlates}`,
-      `TOTAL: R${total}`,
+      `Total Idiyappam plates: ${idiyappamPlates}`,
+      `Total items: ${itemCount}`,
+      `GRAND TOTAL: R${total}`,
       "",
-      "Collection: Home collection",
-      "Thank you for ordering with Annai Foods!"
+      "HOME COLLECTION ADDRESS:",
+      COLLECTION_ADDRESS,
+      "",
+      "Thank you for choosing Annai Foods!"
     ].join("\n");
 
-    const url =
+    window.open(
       "https://wa.me/27651188768?text=" +
-      encodeURIComponent(message);
-
-    window.open(url, "_blank");
+      encodeURIComponent(message),
+      "_blank"
+    );
   }
 
-  const styles = {
-    page: {
+  const buttonStyle = {
+    border: "none",
+    background: "#75451f",
+    color: "white",
+    padding: "9px 14px",
+    borderRadius: "8px",
+    fontSize: "17px",
+    fontWeight: "bold",
+    cursor: "pointer"
+  };
+
+  const fieldStyle = {
+    width: "100%",
+    padding: "13px",
+    margin: "7px 0 15px",
+    border: "1px solid #ddd",
+    borderRadius: "8px",
+    fontSize: "16px",
+    boxSizing: "border-box"
+  };
+
+  const cardStyle = {
+    background: "white",
+    borderRadius: "14px",
+    padding: "17px",
+    marginBottom: "15px",
+    boxShadow: "0 2px 8px #0000000c"
+  };
+
+  return (
+    <main style={{
       minHeight: "100vh",
       background: "#fff8ed",
       padding: "20px 14px",
       fontFamily: "Arial, sans-serif",
       color: "#352315"
-    },
-    container: {
-      maxWidth: "650px",
-      margin: "auto"
-    },
-    card: {
-      background: "white",
-      borderRadius: "14px",
-      padding: "17px",
-      marginBottom: "14px",
-      boxShadow: "0 2px 8px #0000000c"
-    },
-    button: {
-      border: "none",
-      background: "#75451f",
-      color: "white",
-      padding: "10px 15px",
-      borderRadius: "8px",
-      fontSize: "17px",
-      fontWeight: "bold"
-    },
-    field: {
-      width: "100%",
-      padding: "13px",
-      marginTop: "7px",
-      marginBottom: "13px",
-      border: "1px solid #ddd",
-      borderRadius: "8px",
-      boxSizing: "border-box",
-      fontSize: "16px"
-    }
-  };
+    }}>
+      <div style={{ maxWidth: "650px", margin: "auto" }}>
 
-  return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-
-        <header style={{
-          textAlign: "center",
-          padding: "25px 10px"
-        }}>
-          <h1 style={{
-            color: "#75451f",
-            fontSize: "34px",
-            margin: "5px"
-          }}>
+        <header style={{ textAlign: "center", padding: "20px" }}>
+          <h1 style={{ color: "#75451f", fontSize: "34px" }}>
             Annai Foods
           </h1>
-
-          <h3 style={{ margin: "10px" }}>
-            Welcome to Annai Foods
-          </h3>
-
-          <p>
-            Order your favourite food through WhatsApp.
-          </p>
-
-          <p style={{ color: "#75451f", fontWeight: "bold" }}>
-            Fresh food made with love!
-          </p>
+          <h3>Homemade with Love ❤️</h3>
+          <p>Order your favourite food through WhatsApp.</p>
         </header>
 
-        <section style={styles.card}>
+        <section style={cardStyle}>
           <h2>Our Food Menu</h2>
-
           <p style={{ color: "#a04b24" }}>
             Minimum 5 plates of Idiyappam per order.
           </p>
 
-          {MENU.map((item) => (
-            <div
-              key={item.name}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "8px",
-                padding: "13px 0",
-                borderBottom: "1px solid #eee"
-              }}
-            >
+          {MENU.map(item => (
+            <div key={item.name} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "8px",
+              padding: "13px 0",
+              borderBottom: "1px solid #eee"
+            }}>
               <div style={{ flex: 1 }}>
                 <strong>{item.name}</strong>
-
                 {item.description && (
-                  <div style={{
-                    fontSize: "12px",
-                    color: "#777",
-                    marginTop: "4px"
-                  }}>
+                  <div style={{ fontSize: "12px", color: "#777" }}>
                     {item.description}
                   </div>
                 )}
-
                 <div style={{
                   color: "#75451f",
                   fontWeight: "bold",
@@ -231,69 +221,119 @@ export default function Home() {
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "10px"
+                gap: "9px"
               }}>
                 <button
-                  style={styles.button}
+                  style={buttonStyle}
                   onClick={() => changeQuantity(item.name, -1)}
-                >
-                  −
-                </button>
-
-                <strong style={{
-                  minWidth: "15px",
-                  textAlign: "center"
-                }}>
-                  {quantities[item.name] || 0}
-                </strong>
-
+                >−</button>
+                <strong>{quantities[item.name] || 0}</strong>
                 <button
-                  style={styles.button}
+                  style={buttonStyle}
                   onClick={() => changeQuantity(item.name, 1)}
-                >
-                  +
-                </button>
+                >+</button>
               </div>
             </div>
           ))}
         </section>
 
-        <section style={styles.card}>
-          <h2>Your Order Summary</h2>
+        <section style={{
+          ...cardStyle,
+          border: "2px solid #218838"
+        }}>
+          <h2>🛒 Your Shopping Cart</h2>
 
-          <p>Selected items: {itemCount}</p>
-          <p>Idiyappam plates: {idiyappamPlates}</p>
+          {selectedItems.length === 0 ? (
+            <p style={{ color: "#777" }}>
+              Your cart is empty. Please select food from the menu.
+            </p>
+          ) : (
+            selectedItems.map(item => (
+              <div key={item.name} style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "8px",
+                padding: "12px 0",
+                borderBottom: "1px solid #eee"
+              }}>
+                <div style={{ flex: 1 }}>
+                  <strong>{item.name}</strong>
+                  <div style={{ fontSize: "13px", color: "#777" }}>
+                    R{item.price} × {quantities[item.name]}
+                  </div>
+                  <strong style={{ color: "#75451f" }}>
+                    R{item.price * quantities[item.name]}
+                  </strong>
+                </div>
 
-          <h2 style={{ color: "#75451f" }}>
-            Total: R{total}
-          </h2>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "7px"
+                }}>
+                  <button
+                    style={buttonStyle}
+                    onClick={() => changeQuantity(item.name, -1)}
+                  >−</button>
+                  <strong>{quantities[item.name]}</strong>
+                  <button
+                    style={buttonStyle}
+                    onClick={() => changeQuantity(item.name, 1)}
+                  >+</button>
+                </div>
+              </div>
+            ))
+          )}
+
+          <div style={{ paddingTop: "15px" }}>
+            <p>
+              Total selected items: <strong>{itemCount}</strong>
+            </p>
+            <p>
+              Total Idiyappam plates: <strong>{idiyappamPlates}</strong>
+            </p>
+            <h2 style={{ color: "#218838" }}>
+              Grand Total: R{total}
+            </h2>
+          </div>
         </section>
 
-        <section style={styles.card}>
+        <section style={cardStyle}>
+          <h2>📍 Home Collection Address</h2>
+          <p>{COLLECTION_ADDRESS}</p>
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(COLLECTION_ADDRESS)}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "#18783a", fontWeight: "bold" }}
+          >
+            Get Directions on Google Maps
+          </a>
+        </section>
+
+        <section style={cardStyle}>
           <h2>Customer Details</h2>
 
           <label>Your Name</label>
           <input
-            style={styles.field}
+            style={fieldStyle}
             placeholder="Enter your full name"
             value={customer}
-            onChange={(e) => setCustomer(e.target.value)}
+            onChange={e => setCustomer(e.target.value)}
           />
 
           <label>WhatsApp Number</label>
           <input
-            style={styles.field}
-            placeholder="Enter your phone number"
+            style={fieldStyle}
             type="tel"
+            placeholder="Enter your phone number"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={e => setPhone(e.target.value)}
           />
 
           <p><strong>Collection:</strong> Home collection only</p>
-
-          <p>
-            <strong>Ordering time:</strong> Before 12:00 PM
-          </p>
+          <p><strong>Orders:</strong> Before 12:00 PM</p>
 
           {error && (
             <p style={{ color: "red", fontWeight: "bold" }}>
@@ -304,36 +344,26 @@ export default function Home() {
           <button
             onClick={placeOrder}
             style={{
-              ...styles.button,
+              ...buttonStyle,
               width: "100%",
               padding: "16px",
               background: "#218838",
-              fontSize: "18px",
-              cursor: "pointer"
+              fontSize: "18px"
             }}
           >
-            Order Now on WhatsApp
+            Place Order on WhatsApp
           </button>
 
-          <p style={{
-            textAlign: "center",
-            fontSize: "13px",
-            color: "#777"
-          }}>
-            Your order will be sent to Annai Foods WhatsApp.
+          <p style={{ textAlign: "center", fontSize: "13px", color: "#777" }}>
+            Please review your cart before sending your order.
           </p>
         </section>
 
-        <footer style={{
-          textAlign: "center",
-          padding: "20px"
-        }}>
-          <strong>Thank you for choosing Annai Foods!</strong>
+        <footer style={{ textAlign: "center", padding: "20px" }}>
+          <strong>Thank you for choosing Annai Foods! ❤️</strong>
           <p>WhatsApp: 0651188768</p>
         </footer>
-
       </div>
     </main>
   );
-}
-
+      }
