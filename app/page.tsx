@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -50,6 +49,7 @@ export default function Home() {
     const timer = window.setInterval(() => {
       setClockRefresh(value => value + 1);
     }, 30000);
+
     return () => window.clearInterval(timer);
   }, []);
 
@@ -71,9 +71,11 @@ export default function Home() {
     if (item.type === "idiyappam") {
       return sum + quantities[item.name];
     }
+
     if (item.type === "combo") {
       return sum + quantities[item.name] * 2;
     }
+
     return sum;
   }, 0);
 
@@ -82,6 +84,7 @@ export default function Home() {
       ...previous,
       [name]: Math.max(0, (previous[name] || 0) + amount)
     }));
+
     setError("");
   }
 
@@ -113,12 +116,17 @@ export default function Home() {
     month: number;
     day: number;
   }) {
-    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(
+      date.day
+    ).padStart(2, "0")}`;
   }
 
   function getMinimumCollectionDate() {
     const now = getJohannesburgNow();
-    const minimum = new Date(Date.UTC(now.year, now.month - 1, now.day));
+
+    const minimum = new Date(
+      Date.UTC(now.year, now.month - 1, now.day)
+    );
 
     if (now.hour >= 12) {
       minimum.setUTCDate(minimum.getUTCDate() + 1);
@@ -184,7 +192,9 @@ export default function Home() {
 
     const orderLines = selectedItems.map(
       item =>
-        `${item.name} x ${quantities[item.name]} = R${item.price * quantities[item.name]}`
+        `${item.name} x ${quantities[item.name]} = R${
+          item.price * quantities[item.name]
+        }`
     );
 
     const message = [
@@ -209,7 +219,8 @@ export default function Home() {
     ].join("\n");
 
     window.open(
-      "https://wa.me/27651188768?text=" + encodeURIComponent(message),
+      "https://wa.me/27651188768?text=" +
+        encodeURIComponent(message),
       "_blank"
     );
   }
@@ -244,24 +255,27 @@ export default function Home() {
   };
 
   return (
-    <main style={{
-      minHeight: "100vh",
-      background: "#fff8ed",
-      padding: "20px 14px",
-      fontFamily: "Arial, sans-serif",
-      color: "#352315"
-    }}>
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#fff8ed",
+        padding: "20px 14px",
+        fontFamily: "Arial, sans-serif",
+        color: "#352315"
+      }}
+    >
       <div style={{ maxWidth: "650px", margin: "auto" }}>
-
-        <header style={{
-          textAlign: "center",
-          padding: "22px 16px 26px",
-          marginBottom: "16px",
-          background: "#fffdf5",
-          border: "1px solid #dce8d5",
-          borderRadius: "18px",
-          boxShadow: "0 5px 18px #174b2110"
-        }}>
+        <header
+          style={{
+            textAlign: "center",
+            padding: "22px 16px 26px",
+            marginBottom: "16px",
+            background: "#fffdf5",
+            border: "1px solid #dce8d5",
+            borderRadius: "18px",
+            boxShadow: "0 5px 18px #174b2110"
+          }}
+        >
           <img
             src="/annai-foods-logo.jpg"
             alt="Annai Foods Logo"
@@ -275,11 +289,13 @@ export default function Home() {
             }}
           />
 
-          <h1 style={{
-            color: "#075b20",
-            fontSize: "30px",
-            margin: "8px 0"
-          }}>
+          <h1
+            style={{
+              color: "#075b20",
+              fontSize: "30px",
+              margin: "8px 0"
+            }}
+          >
             Welcome to Annai Foods ❤️
           </h1>
 
@@ -288,25 +304,30 @@ export default function Home() {
           </h3>
 
           <p>
-            Choose your food, review your cart and place your order through WhatsApp.
+            Choose your food, review your cart and place your order through
+            WhatsApp.
           </p>
         </header>
 
         <section style={cardStyle}>
           <h2>Our Food Menu</h2>
+
           <p style={{ color: "#a04b24" }}>
             Minimum 5 plates of Idiyappam per order.
           </p>
 
           {MENU.map(item => (
-            <div key={item.name} style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "8px",
-              padding: "13px 0",
-              borderBottom: "1px solid #eee"
-            }}>
+            <div
+              key={item.name}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "8px",
+                padding: "13px 0",
+                borderBottom: "1px solid #eee"
+              }}
+            >
               <div style={{ flex: 1 }}>
                 <strong>{item.name}</strong>
 
@@ -316,40 +337,50 @@ export default function Home() {
                   </div>
                 )}
 
-                <div style={{
-                  color: "#75451f",
-                  fontWeight: "bold",
-                  marginTop: "5px"
-                }}>
+                <div
+                  style={{
+                    color: "#75451f",
+                    fontWeight: "bold",
+                    marginTop: "5px"
+                  }}
+                >
                   R{item.price}
                 </div>
               </div>
 
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "9px"
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "9px"
+                }}
+              >
                 <button
                   style={buttonStyle}
                   onClick={() => changeQuantity(item.name, -1)}
-                >−</button>
+                >
+                  −
+                </button>
 
                 <strong>{quantities[item.name] || 0}</strong>
 
                 <button
                   style={buttonStyle}
                   onClick={() => changeQuantity(item.name, 1)}
-                >+</button>
+                >
+                  +
+                </button>
               </div>
             </div>
           ))}
         </section>
 
-        <section style={{
-          ...cardStyle,
-          border: "2px solid #218838"
-        }}>
+        <section
+          style={{
+            ...cardStyle,
+            border: "2px solid #218838"
+          }}
+        >
           <h2>🛒 Your Shopping Cart</h2>
 
           {selectedItems.length === 0 ? (
@@ -358,14 +389,17 @@ export default function Home() {
             </p>
           ) : (
             selectedItems.map(item => (
-              <div key={item.name} style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "8px",
-                padding: "12px 0",
-                borderBottom: "1px solid #eee"
-              }}>
+              <div
+                key={item.name}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "12px 0",
+                  borderBottom: "1px solid #eee"
+                }}
+              >
                 <div style={{ flex: 1 }}>
                   <strong>{item.name}</strong>
 
@@ -378,22 +412,28 @@ export default function Home() {
                   </strong>
                 </div>
 
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "7px"
-                }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "7px"
+                  }}
+                >
                   <button
                     style={buttonStyle}
                     onClick={() => changeQuantity(item.name, -1)}
-                  >−</button>
+                  >
+                    −
+                  </button>
 
                   <strong>{quantities[item.name]}</strong>
 
                   <button
                     style={buttonStyle}
                     onClick={() => changeQuantity(item.name, 1)}
-                  >+</button>
+                  >
+                    +
+                  </button>
                 </div>
               </div>
             ))
@@ -419,7 +459,9 @@ export default function Home() {
           <p>{COLLECTION_ADDRESS}</p>
 
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(COLLECTION_ADDRESS)}`}
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+              COLLECTION_ADDRESS
+            )}`}
             target="_blank"
             rel="noreferrer"
             style={{ color: "#18783a", fontWeight: "bold" }}
@@ -468,8 +510,13 @@ export default function Home() {
               : "You can select today or any future date. Today's collection closes at 12:00 PM."}
           </p>
 
-          <p><strong>Collection:</strong> Home collection only</p>
-          <p><strong>Order cutoff:</strong> 12:00 PM (Johannesburg time)</p>
+          <p>
+            <strong>Collection:</strong> Home collection only
+          </p>
+
+          <p>
+            <strong>Order cutoff:</strong> 12:00 PM (Johannesburg time)
+          </p>
 
           {error && (
             <p style={{ color: "red", fontWeight: "bold" }}>
@@ -490,11 +537,13 @@ export default function Home() {
             Place Order on WhatsApp
           </button>
 
-          <p style={{
-            textAlign: "center",
-            fontSize: "13px",
-            color: "#777"
-          }}>
+          <p
+            style={{
+              textAlign: "center",
+              fontSize: "13px",
+              color: "#777"
+            }}
+          >
             Please review your cart before sending your order.
           </p>
         </section>
