@@ -1,6 +1,8 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 type MenuItem = {
   name: string;
@@ -36,22 +38,39 @@ const MENU: MenuItem[] = [
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
+const STORAGE_BUCKET = "payment-proofs";
+const WHATSAPP_NUMBER = "27607104011";
+
+// Replace these two placeholders with your confirmed FNB details.
+const BANK = {
+  name: "FNB",
+  holder: "Lavanya Sivagopal",
+  account: "REPLACE_WITH_YOUR_FNB_ACCOUNT_NUMBER",
+  type: "FNB Aspire Current Account",
+  branch: "REPLACE_WITH_YOUR_BRANCH_CODE"
+};
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 export default function Home() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState("");
+  const [proof, setProof] = useState<File | null>(null);
+
+  const [orderNumber, setOrderNumber] = useState("");
+  const [reservedOrderId, setReservedOrderId] = useState("");
   const [error, setError] = useState("");
-
-  const [, setClockRefresh] = useState(0);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setClockRefresh(value => value + 1);
-    }, 30000);
-
-    return () => window.clearInterval(timer);
-  }, []);
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<"details" | "payment" | "complete">(
+    "details"
+  );
 
   const selectedItems = MENU.filter(
     item => (quantities[item.name] || 0) > 0
@@ -106,123 +125,277 @@ export default function Home() {
       year: Number(value("year")),
       month: Number(value("month")),
       day: Number(value("day")),
-      hour: Number(value("hour")),
-      minute: Number(value("minute"))
+      hour: Number(value("hour"))
     };
-  }
-
-  function formatDateForInput(date: {
-    year: number;
-    month: number;
-    day: number;
-  }) {
-    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(
-      date.day
-    ).padStart(2, "0")}`;
   }
 
   function getMinimumCollectionDate() {
     const now = getJohannesburgNow();
 
-    const minimum = new Date(
+    const date = new Date(
       Date.UTC(now.year, now.month - 1, now.day)
     );
 
     if (now.hour >= 12) {
-      minimum.setUTCDate(minimum.getUTCDate() + 1);
+      date.setUTCDate(date.getUTCDate() + 1);
     }
 
-    return formatDateForInput({
-      year: minimum.getUTCFullYear(),
-      month: minimum.getUTCMonth() + 1,
-      day: minimum.getUTCDate()
+    return date.toISOString().slice(0, 10);
+  }
+
+  function formatCollectionDate(value: string) {
+    const [year, month, day] = value.split("-").map(Number);
+
+    return new Date(
+      Date.UTC(year, month - 1, day)
+    ).toLocaleDateString("en-ZA", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC"
     });
   }
 
-  function formatCollectionDate(dateValue: string) {
-    const [year, month, day] = dateValue.split("-").map(Number);
+  function generateOrderNumber() {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
 
-    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
-      "en-ZA",
-      {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC"
-      }
-    );
+    return String(1000 + (array[0] % 9000));
   }
 
-  function placeOrder() {
+  function getOrderLines() {
+    return selectedItems.map(item => ({
+      name: item.name,
+      quantity: quantities[item.name],
+      price: item.price,
+      subtotal: item.price * quantities[item.name]
+    }));
+  }
+
+  function validateDetails() {
     if (!customer.trim()) {
-      setError("Please enter your name.");
-      return;
+      setError("Please enter your full name.");
+      return false;
     }
 
     if (!phone.trim()) {
       setError("Please enter your WhatsApp number.");
-      return;
+      return false;
     }
 
     if (selectedItems.length === 0) {
-      setError("Please select food for your cart.");
-      return;
+      setError("Please select food from the menu.");
+      return false;
     }
 
     if (idiyappamPlates < 5) {
       setError("Minimum order is 5 plates of Idiyappam.");
-      return;
+      return false;
     }
-
-    const minimumCollectionDate = getMinimumCollectionDate();
 
     if (!collectionDate) {
       setError("Please select your collection date.");
-      return;
+      return false;
     }
 
-    if (collectionDate < minimumCollectionDate) {
+    if (collectionDate < getMinimumCollectionDate()) {
+      setError("Please select a valid collection date.");
+      return false;
+    }
+
+    return true;
+  }
+
+  // STEP 1: Reserve a unique order number before EFT payment.
+  async function reserveOrder() {
+    setError("");
+
+    if (!validateDetails()) return;
+
+    setLoading(true);
+
+    try {
+      let savedOrder: any = null;
+      let finalNumber = "";
+      let lastError: any = null;
+
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const candidate = generateOrderNumber();
+
+        const { data, error: insertError } = await supabase
+          .from("orders")
+          .insert({
+            order_number: candidate,
+            customer_name: customer.trim(),
+            customer_phone: phone.trim(),
+            items: getOrderLines(),
+            total_amount: total,
+            idiyappam_plates: idiyappamPlates,
+            collection_date: collectionDate,
+            payment_proof_path: null,
+            payment_status: "awaiting_payment"
+          })
+          .select("id, order_number")
+          .single();
+
+        if (!insertError) {
+          savedOrder = data;
+          finalNumber = candidate;
+          break;
+        }
+
+        lastError = insertError;
+
+        if (
+          insertError.code !== "23505" ||
+          !insertError.message.toLowerCase().includes("order_number")
+        ) {
+          throw insertError;
+        }
+      }
+
+      if (!savedOrder) {
+        throw lastError || new Error("Unable to reserve an order number.");
+      }
+
+      setOrderNumber(finalNumber);
+      setReservedOrderId(savedOrder.id);
+      setStep("payment");
+
+    } catch (err: any) {
+      console.error(err);
       setError(
-        getJohannesburgNow().hour >= 12
-          ? "After 12:00 PM, collection can be selected from tomorrow onwards."
-          : "Please select today or a future collection date."
+        err?.message || "Unable to reserve your order. Please try again."
       );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // STEP 2: Upload payment proof and update the reserved order.
+  async function submitPaymentProof() {
+    setError("");
+
+    if (!reservedOrderId || !orderNumber) {
+      setError("Please generate your order number first.");
       return;
     }
 
-    const orderLines = selectedItems.map(
-      item =>
-        `${item.name} x ${quantities[item.name]} = R${
-          item.price * quantities[item.name]
-        }`
-    );
+    if (!proof) {
+      setError("Please upload your EFT proof of payment.");
+      return;
+    }
 
-    const message = [
-      "ANNAI FOODS - NEW ORDER",
-      "",
-      "Welcome to Annai Foods!",
-      `Customer: ${customer}`,
-      `WhatsApp: ${phone}`,
-      `Collection date: ${formatCollectionDate(collectionDate)}`,
-      "",
-      "MY ORDER:",
-      ...orderLines,
-      "",
-      `Total selected items: ${itemCount}`,
-      `Total Idiyappam plates: ${idiyappamPlates}`,
-      `GRAND TOTAL: R${total}`,
-      "",
-      "HOME COLLECTION ADDRESS:",
-      COLLECTION_ADDRESS,
-      "",
-      "Thank you for choosing Annai Foods!"
-    ].join("\n");
+    if (proof.size > 5 * 1024 * 1024) {
+      setError("Payment proof must be smaller than 5 MB.");
+      return;
+    }
 
-    window.open(
-      "https://wa.me/27651188768?text=" +
-        encodeURIComponent(message),
-      "_blank"
-    );
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "application/pdf"
+    ];
+
+    if (!allowedTypes.includes(proof.type)) {
+      setError("Please upload a JPG, PNG or PDF file.");
+      return;
+    }
+
+    setLoading(true);
+
+    let uploadedPath = "";
+
+    try {
+      const extension = proof.name.split(".").pop() || "jpg";
+
+      uploadedPath = `${reservedOrderId}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(uploadedPath, proof, {
+          contentType: proof.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from("orders")
+        .update({
+          payment_proof_path: uploadedPath,
+          payment_status: "pending_verification"
+        })
+        .eq("id", reservedOrderId)
+        .eq("order_number", orderNumber)
+        .select("id")
+        .single();
+
+      if (updateError) throw updateError;
+      if (!updatedOrder) {
+        throw new Error("Order could not be updated.");
+      }
+
+      const { data: signedData, error: signedError } =
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
+
+      if (signedError) throw signedError;
+
+      const orderLines = getOrderLines();
+
+      const message = [
+        "ANNAI FOODS - NEW ORDER",
+        "",
+        `Order number: ${orderNumber}`,
+        `EFT payment reference: ${orderNumber}`,
+        `Customer: ${customer}`,
+        `WhatsApp: ${phone}`,
+        `Collection date: ${formatCollectionDate(collectionDate)}`,
+        "",
+        "ORDER DETAILS:",
+        ...orderLines.map(
+          item =>
+            `${item.name} x ${item.quantity} = R${item.subtotal}`
+        ),
+        "",
+        `Total selected items: ${itemCount}`,
+        `Total Idiyappam plates: ${idiyappamPlates}`,
+        `GRAND TOTAL: R${total}`,
+        "",
+        "PAYMENT STATUS: Proof uploaded - awaiting verification",
+        `PAYMENT PROOF: ${signedData.signedUrl}`,
+        "",
+        "HOME COLLECTION ADDRESS:",
+        COLLECTION_ADDRESS,
+        "",
+        "Thank you for choosing Annai Foods!"
+      ].join("\n");
+
+      setStep("complete");
+
+      window.location.href =
+        "https://wa.me/" +
+        WHATSAPP_NUMBER +
+        "?text=" +
+        encodeURIComponent(message);
+
+    } catch (err: any) {
+      console.error(err);
+
+      if (uploadedPath) {
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove([uploadedPath]);
+      }
+
+      setError(
+        err?.message || "Payment proof upload failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   const buttonStyle = {
@@ -265,6 +438,7 @@ export default function Home() {
       }}
     >
       <div style={{ maxWidth: "650px", margin: "auto" }}>
+
         <header
           style={{
             textAlign: "center",
@@ -289,23 +463,16 @@ export default function Home() {
             }}
           />
 
-          <h1
-            style={{
-              color: "#075b20",
-              fontSize: "30px",
-              margin: "8px 0"
-            }}
-          >
+          <h1 style={{ color: "#075b20", fontSize: "30px" }}>
             Welcome to Annai Foods ❤️
           </h1>
 
-          <h3 style={{ color: "#397c2c", margin: "6px 0" }}>
+          <h3 style={{ color: "#397c2c" }}>
             Fresh Homemade Idiyappam · Made with Love
           </h3>
 
           <p>
-            Choose your food, review your cart and place your order through
-            WhatsApp.
+            Choose your food, review your cart and pay by EFT.
           </p>
         </header>
 
@@ -337,26 +504,15 @@ export default function Home() {
                   </div>
                 )}
 
-                <div
-                  style={{
-                    color: "#75451f",
-                    fontWeight: "bold",
-                    marginTop: "5px"
-                  }}
-                >
+                <div style={{ color: "#75451f", fontWeight: "bold" }}>
                   R{item.price}
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "9px"
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
                 <button
                   style={buttonStyle}
+                  disabled={step !== "details"}
                   onClick={() => changeQuantity(item.name, -1)}
                 >
                   −
@@ -366,6 +522,7 @@ export default function Home() {
 
                 <button
                   style={buttonStyle}
+                  disabled={step !== "details"}
                   onClick={() => changeQuantity(item.name, 1)}
                 >
                   +
@@ -375,12 +532,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section
-          style={{
-            ...cardStyle,
-            border: "2px solid #218838"
-          }}
-        >
+        <section style={{ ...cardStyle, border: "2px solid #218838" }}>
           <h2>🛒 Your Shopping Cart</h2>
 
           {selectedItems.length === 0 ? (
@@ -395,12 +547,11 @@ export default function Home() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  gap: "8px",
                   padding: "12px 0",
                   borderBottom: "1px solid #eee"
                 }}
               >
-                <div style={{ flex: 1 }}>
+                <div>
                   <strong>{item.name}</strong>
 
                   <div style={{ fontSize: "13px", color: "#777" }}>
@@ -412,15 +563,10 @@ export default function Home() {
                   </strong>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "7px"
-                  }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                   <button
                     style={buttonStyle}
+                    disabled={step !== "details"}
                     onClick={() => changeQuantity(item.name, -1)}
                   >
                     −
@@ -430,6 +576,7 @@ export default function Home() {
 
                   <button
                     style={buttonStyle}
+                    disabled={step !== "details"}
                     onClick={() => changeQuantity(item.name, 1)}
                   >
                     +
@@ -439,29 +586,21 @@ export default function Home() {
             ))
           )}
 
-          <div style={{ paddingTop: "15px" }}>
-            <p>
-              Total selected items: <strong>{itemCount}</strong>
-            </p>
+          <p>Total selected items: <strong>{itemCount}</strong></p>
+          <p>Total Idiyappam plates: <strong>{idiyappamPlates}</strong></p>
 
-            <p>
-              Total Idiyappam plates: <strong>{idiyappamPlates}</strong>
-            </p>
-
-            <h2 style={{ color: "#218838" }}>
-              Grand Total: R{total}
-            </h2>
-          </div>
+          <h2 style={{ color: "#218838" }}>
+            Grand Total: R{total}
+          </h2>
         </section>
 
         <section style={cardStyle}>
           <h2>📍 Home Collection Address</h2>
+
           <p>{COLLECTION_ADDRESS}</p>
 
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              COLLECTION_ADDRESS
-            )}`}
+            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(COLLECTION_ADDRESS)}`}
             target="_blank"
             rel="noreferrer"
             style={{ color: "#18783a", fontWeight: "bold" }}
@@ -474,85 +613,128 @@ export default function Home() {
           <h2>Customer Details</h2>
 
           <label>Your Name</label>
+
           <input
             style={fieldStyle}
             placeholder="Enter your full name"
             value={customer}
+            disabled={step !== "details"}
             onChange={e => setCustomer(e.target.value)}
           />
 
           <label>WhatsApp Number</label>
+
           <input
             style={fieldStyle}
             type="tel"
             placeholder="Enter your phone number"
             value={phone}
+            disabled={step !== "details"}
             onChange={e => setPhone(e.target.value)}
           />
 
-          <label htmlFor="collection-date">Collection Date</label>
+          <label>Collection Date</label>
+
           <input
-            id="collection-date"
             style={fieldStyle}
             type="date"
             min={getMinimumCollectionDate()}
             value={collectionDate}
+            disabled={step !== "details"}
             onChange={e => {
               setCollectionDate(e.target.value);
               setError("");
             }}
-            required
           />
 
           <p style={{ color: "#397c2c", fontSize: "14px" }}>
             {getJohannesburgNow().hour >= 12
               ? "Today's collection is closed. Select tomorrow or any future date."
-              : "You can select today or any future date. Today's collection closes at 12:00 PM."}
+              : "Select today before 12 PM or any future date."}
           </p>
 
-          <p>
-            <strong>Collection:</strong> Home collection only
-          </p>
+          <p><strong>Collection:</strong> Home collection only</p>
+          <p><strong>Order cutoff:</strong> 12:00 PM Johannesburg time</p>
 
-          <p>
-            <strong>Order cutoff:</strong> 12:00 PM (Johannesburg time)
-          </p>
-
-          {error && (
-            <p style={{ color: "red", fontWeight: "bold" }}>
-              {error}
-            </p>
+          {step === "details" && (
+            <button
+              onClick={reserveOrder}
+              disabled={loading}
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                padding: "16px",
+                background: "#218838"
+              }}
+            >
+              {loading ? "Generating order number..." : "Continue to EFT Payment"}
+            </button>
           )}
-
-          <button
-            onClick={placeOrder}
-            style={{
-              ...buttonStyle,
-              width: "100%",
-              padding: "16px",
-              background: "#218838",
-              fontSize: "18px"
-            }}
-          >
-            Place Order on WhatsApp
-          </button>
-
-          <p
-            style={{
-              textAlign: "center",
-              fontSize: "13px",
-              color: "#777"
-            }}
-          >
-            Please review your cart before sending your order.
-          </p>
         </section>
 
-        <footer style={{ textAlign: "center", padding: "20px" }}>
-          <strong>Thank you for choosing Annai Foods! ❤️</strong>
-          <p>WhatsApp: 0651188768</p>
-        </footer>
-      </div>
-    </main>
-  );
-}
+        {step === "payment" && (
+          <section
+            style={{
+              ...cardStyle,
+              border: "2px solid #218838"
+            }}
+          >
+            <h2>🏦 FNB EFT Payment</h2>
+
+            <div
+              style={{
+                background: "#eaf5e9",
+                borderRadius: "12px",
+                padding: "16px",
+                textAlign: "center"
+              }}
+            >
+              <p>Your unique order number</p>
+
+              <h1 style={{ color: "#075b20", fontSize: "38px" }}>
+                {orderNumber}
+              </h1>
+
+              <p>
+                Use this 4-digit number as your EFT payment reference.
+              </p>
+            </div>
+
+            <h3>Bank Account Details</h3>
+
+            <p><strong>Bank:</strong> {BANK.name}</p>
+            <p><strong>Account holder:</strong> {BANK.holder}</p>
+            <p><strong>Account number:</strong> {BANK.account}</p>
+            <p><strong>Account type:</strong> {BANK.type}</p>
+            <p><strong>Branch code:</strong> {BANK.branch}</p>
+
+            <h2 style={{ color: "#218838" }}>
+              Amount to Pay: R{total}
+            </h2>
+
+            <p>
+              Please pay the full amount using your order number as the
+              payment reference.
+            </p>
+
+            <divider />
+
+            <h3>Upload Proof of Payment</h3>
+
+            <input
+              style={fieldStyle}
+              type="file"
+              accept="image/jpeg,image/png,application/pdf"
+              onChange={e => {
+                setProof(e.target.files?.[0] || null);
+                setError("");
+              }}
+            />
+
+            {proof && (
+              <p style={{ color: "#218838" }}>
+                Selected file: {proof.name}
+              </p>
+            )}
+
+            <p style={{ fontSize: "13px", color: "#7
