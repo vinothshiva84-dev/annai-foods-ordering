@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type MenuItem = {
   name: string;
@@ -41,7 +41,17 @@ export default function Home() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
+  const [collectionDate, setCollectionDate] = useState("");
   const [error, setError] = useState("");
+
+  const [, setClockRefresh] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClockRefresh(value => value + 1);
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const selectedItems = MENU.filter(
     item => (quantities[item.name] || 0) > 0
@@ -75,6 +85,66 @@ export default function Home() {
     setError("");
   }
 
+  function getJohannesburgNow() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Johannesburg",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(new Date());
+
+    const value = (type: string) =>
+      parts.find(part => part.type === type)?.value || "00";
+
+    return {
+      year: Number(value("year")),
+      month: Number(value("month")),
+      day: Number(value("day")),
+      hour: Number(value("hour")),
+      minute: Number(value("minute"))
+    };
+  }
+
+  function formatDateForInput(date: {
+    year: number;
+    month: number;
+    day: number;
+  }) {
+    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  }
+
+  function getMinimumCollectionDate() {
+    const now = getJohannesburgNow();
+    const minimum = new Date(Date.UTC(now.year, now.month - 1, now.day));
+
+    if (now.hour >= 12) {
+      minimum.setUTCDate(minimum.getUTCDate() + 1);
+    }
+
+    return formatDateForInput({
+      year: minimum.getUTCFullYear(),
+      month: minimum.getUTCMonth() + 1,
+      day: minimum.getUTCDate()
+    });
+  }
+
+  function formatCollectionDate(dateValue: string) {
+    const [year, month, day] = dateValue.split("-").map(Number);
+
+    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
+      "en-ZA",
+      {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC"
+      }
+    );
+  }
+
   function placeOrder() {
     if (!customer.trim()) {
       setError("Please enter your name.");
@@ -96,14 +166,19 @@ export default function Home() {
       return;
     }
 
-    const southAfricaTime = new Date(
-      new Date().toLocaleString("en-US", {
-        timeZone: "Africa/Johannesburg"
-      })
-    );
+    const minimumCollectionDate = getMinimumCollectionDate();
 
-    if (southAfricaTime.getHours() >= 12) {
-      setError("Orders must be placed before 12:00 PM.");
+    if (!collectionDate) {
+      setError("Please select your collection date.");
+      return;
+    }
+
+    if (collectionDate < minimumCollectionDate) {
+      setError(
+        getJohannesburgNow().hour >= 12
+          ? "After 12:00 PM, collection can be selected from tomorrow onwards."
+          : "Please select today or a future collection date."
+      );
       return;
     }
 
@@ -118,6 +193,7 @@ export default function Home() {
       "Welcome to Annai Foods!",
       `Customer: ${customer}`,
       `WhatsApp: ${phone}`,
+      `Collection date: ${formatCollectionDate(collectionDate)}`,
       "",
       "MY ORDER:",
       ...orderLines,
@@ -133,8 +209,7 @@ export default function Home() {
     ].join("\n");
 
     window.open(
-      "https://wa.me/27651188768?text=" +
-        encodeURIComponent(message),
+      "https://wa.me/27607104011?text=" + encodeURIComponent(message),
       "_blank"
     );
   }
@@ -373,8 +448,28 @@ export default function Home() {
             onChange={e => setPhone(e.target.value)}
           />
 
+          <label htmlFor="collection-date">Collection Date</label>
+          <input
+            id="collection-date"
+            style={fieldStyle}
+            type="date"
+            min={getMinimumCollectionDate()}
+            value={collectionDate}
+            onChange={e => {
+              setCollectionDate(e.target.value);
+              setError("");
+            }}
+            required
+          />
+
+          <p style={{ color: "#397c2c", fontSize: "14px" }}>
+            {getJohannesburgNow().hour >= 12
+              ? "Today's collection is closed. Select tomorrow or any future date."
+              : "You can select today or any future date. Today's collection closes at 12:00 PM."}
+          </p>
+
           <p><strong>Collection:</strong> Home collection only</p>
-          <p><strong>Orders:</strong> Before 12:00 PM</p>
+          <p><strong>Order cutoff:</strong> 12:00 PM (Johannesburg time)</p>
 
           {error && (
             <p style={{ color: "red", fontWeight: "bold" }}>
@@ -406,10 +501,9 @@ export default function Home() {
 
         <footer style={{ textAlign: "center", padding: "20px" }}>
           <strong>Thank you for choosing Annai Foods! ❤️</strong>
-          <p>WhatsApp: 0651188768</p>
+          <p>WhatsApp: 0607104011</p>
         </footer>
       </div>
     </main>
   );
-        }
-                              
+}
