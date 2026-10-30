@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -39,8 +40,10 @@ const COLLECTION_ADDRESS =
 
 const STORAGE_BUCKET = "payment-proofs";
 
+// Annai Foods WhatsApp notification number
 const WHATSAPP_NUMBER = "27607104011";
 
+// Enter your verified FNB details before publishing.
 const BANK = {
   name: "FNB",
   holder: "Lavanya Sivagopal",
@@ -49,9 +52,15 @@ const BANK = {
   branch: "REPLACE_WITH_YOUR_BRANCH_CODE"
 };
 
-// Use the URL and publishable key from the SAME Supabase project.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+// Use only the current Supabase project URL and publishable key.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Missing Supabase configuration. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel."
+  );
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -200,16 +209,14 @@ export default function Home() {
     return true;
   }
 
-  // STEP 1: Reserve an order number.
+  // STEP 1: Reserve a unique order number before payment.
   async function reserveOrder() {
     setError("");
 
     if (!validateDetails()) return;
 
     if (!supabaseUrl || !supabaseKey) {
-      setError(
-        "Supabase settings are missing. Please check the Vercel environment variables."
-      );
+      setError("Supabase environment variables are not configured.");
       return;
     }
 
@@ -221,12 +228,10 @@ export default function Home() {
 
       for (let attempt = 0; attempt < 30; attempt++) {
         const candidate = generateOrderNumber();
-        const newOrderId = crypto.randomUUID();
 
-        const { error: insertError } = await supabase
+        const { data, error: insertError } = await supabase
           .from("orders")
           .insert({
-            id: newOrderId,
             order_number: candidate,
             customer_name: customer.trim(),
             customer_phone: phone.trim(),
@@ -236,19 +241,18 @@ export default function Home() {
             collection_date: collectionDate,
             payment_proof_path: null,
             payment_status: "awaiting_payment"
-          });
+          })
+          .select("id, order_number")
+          .single();
 
-        if (!insertError) {
-          savedOrder = {
-            id: newOrderId,
-            order_number: candidate
-          };
+        if (!insertError && data) {
+          savedOrder = data;
           break;
         }
 
         lastError = insertError;
 
-        if (insertError.code !== "23505") {
+        if (insertError?.code !== "23505") {
           throw insertError;
         }
       }
@@ -261,8 +265,7 @@ export default function Home() {
       setReservedOrderId(savedOrder.id);
       setStep("payment");
     } catch (err: any) {
-      console.error("Order creation error:", err);
-
+      console.error(err);
       setError(
         err?.message || "Unable to reserve your order. Please try again."
       );
@@ -271,7 +274,7 @@ export default function Home() {
     }
   }
 
-  // STEP 2: Upload payment proof and update the order.
+  // STEP 2: Upload payment proof and update the reserved order.
   async function submitPaymentProof() {
     setError("");
 
@@ -285,7 +288,7 @@ export default function Home() {
       BANK.branch === "REPLACE_WITH_YOUR_BRANCH_CODE"
     ) {
       setError(
-        "The FNB account number and branch code must be entered before orders can be submitted."
+        "FNB account number and branch code must be entered before orders can be submitted."
       );
       return;
     }
@@ -395,7 +398,7 @@ export default function Home() {
         encodeURIComponent(message);
 
     } catch (err: any) {
-      console.error("Payment proof submission error:", err);
+      console.error(err);
 
       if (uploadedPath && !orderUpdated) {
         await supabase.storage
