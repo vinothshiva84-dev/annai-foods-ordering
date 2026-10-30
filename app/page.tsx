@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState } from "react";
@@ -39,7 +38,6 @@ const MENU: MenuItem[] = [
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
-const STORAGE_BUCKET = "payment-proofs";
 const WHATSAPP_NUMBER = "27651188768";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,7 +60,6 @@ export default function Home() {
   const [collectionDate, setCollectionDate] = useState("");
   const [collectionMethod, setCollectionMethod] =
     useState<CollectionMethod>("home");
-  const [proof, setProof] = useState<File | null>(null);
 
   const [orderNumber, setOrderNumber] = useState("");
   const [error, setError] = useState("");
@@ -196,32 +193,6 @@ export default function Home() {
       return false;
     }
 
-    if (!collectionMethod) {
-      setError("Please select your collection method.");
-      return false;
-    }
-
-    if (!proof) {
-      setError("Please upload your proof of payment.");
-      return false;
-    }
-
-    if (proof.size > 5 * 1024 * 1024) {
-      setError("Payment proof must be 5 MB or smaller.");
-      return false;
-    }
-
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "application/pdf"
-    ];
-
-    if (!allowedTypes.includes(proof.type)) {
-      setError("Please upload a JPG, PNG or PDF file.");
-      return false;
-    }
-
     return true;
   }
 
@@ -232,25 +203,7 @@ export default function Home() {
 
     setLoading(true);
 
-    let uploadedPath = "";
-
     try {
-      // Upload the customer's payment proof.
-      const extension =
-        proof!.name.split(".").pop()?.toLowerCase() || "jpg";
-
-      uploadedPath =
-        `${crypto.randomUUID()}/${crypto.randomUUID()}.${extension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(uploadedPath, proof!, {
-          contentType: proof!.type,
-          upsert: false
-        });
-
-      if (uploadError) throw uploadError;
-
       // Generate a unique random-looking 4-digit order number.
       let savedOrder: { order_number: string } | null = null;
       let lastError: any = null;
@@ -268,9 +221,7 @@ export default function Home() {
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
             collection_date: collectionDate,
-            collection_method: collectionMethod,
-            payment_proof_path: uploadedPath,
-            payment_status: "pending_verification"
+            collection_method: collectionMethod
           })
           .select("order_number")
           .single();
@@ -294,17 +245,6 @@ export default function Home() {
       }
 
       setOrderNumber(savedOrder.order_number);
-
-      // Create a temporary link to the uploaded proof.
-      let proofLink = uploadedPath;
-
-      const { data: signedData } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
-
-      if (signedData?.signedUrl) {
-        proofLink = signedData.signedUrl;
-      }
 
       const collectionDescription =
         collectionMethod === "home"
@@ -335,11 +275,6 @@ export default function Home() {
         `Total Idiyappam plates: ${idiyappamPlates}`,
         `GRAND TOTAL: R${total}`,
         "",
-        "PAYMENT STATUS: Proof uploaded - awaiting verification",
-        `PAYMENT PROOF: ${proofLink}`,
-        "",
-        "Please verify the payment proof.",
-        "",
         "Thank you for choosing Annai Foods!"
       ].join("\n");
 
@@ -354,13 +289,6 @@ export default function Home() {
 
     } catch (err: any) {
       console.error(err);
-
-      // Remove the uploaded file if the order could not be saved.
-      if (uploadedPath) {
-        await supabase.storage
-          .from(STORAGE_BUCKET)
-          .remove([uploadedPath]);
-      }
 
       setError(
         err?.message || "Unable to submit your order. Please try again."
@@ -707,35 +635,16 @@ export default function Home() {
               : "Select today before 12 PM or any future date."}
           </p>
 
-          <p><strong>Order cutoff:</strong> 12:00 PM Johannesburg time</p>
+          <p>
+            <strong>Order cutoff:</strong> 12:00 PM Johannesburg time
+          </p>
         </section>
 
         <section style={{ ...cardStyle, border: "2px solid #218838" }}>
-          <h2>📸 Upload Proof of Payment</h2>
+          <h2>Place Your Order</h2>
 
           <p>
-            Please upload a screenshot or document showing your payment.
-          </p>
-
-          <input
-            style={fieldStyle}
-            type="file"
-            accept="image/jpeg,image/png,application/pdf"
-            disabled={submitted || loading}
-            onChange={e => {
-              setProof(e.target.files?.[0] || null);
-              setError("");
-            }}
-          />
-
-          {proof && (
-            <p style={{ color: "#218838" }}>
-              Selected file: {proof.name}
-            </p>
-          )}
-
-          <p style={{ fontSize: "13px", color: "#777" }}>
-            Accepted formats: JPG, PNG and PDF. Maximum size: 5 MB.
+            Please check your cart and customer details before submitting.
           </p>
 
           <button
@@ -765,11 +674,6 @@ export default function Home() {
 
             <p>
               Your order number is: <strong>{orderNumber}</strong>
-            </p>
-
-            <p>
-              Your payment proof has been uploaded. Payment verification
-              is pending.
             </p>
 
             <p>
@@ -805,39 +709,4 @@ export default function Home() {
       </div>
     </main>
   );
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+              }
