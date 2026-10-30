@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -43,8 +42,7 @@ const STORAGE_BUCKET = "payment-proofs";
 // Annai Foods WhatsApp notification number
 const WHATSAPP_NUMBER = "27651188768";
 
-// Enter your verified FNB details privately.
-// Do not leave the placeholders when publishing.
+// Enter your verified FNB details before publishing.
 const BANK = {
   name: "FNB",
   holder: "Lavanya Sivagopal",
@@ -728,4 +726,82 @@ export default function Home() {
 
             <input
               style={fieldStyle}
-              type=
+              type="file"
+              accept="image/jpeg,image/png,application/pdf"
+              onChange={e => {
+                setProof(e.target.files?.[0] || null);
+                setError("");
+              }}
+            />
+
+            {proof && (
+              <p style={{ color: "#218838" }}>
+                Selected file: {proof.name}
+              </p>
+            )}
+
+            <p style={{ fontSize: "13px", color: "#777" }}>
+              Accepted formats: JPG, PNG and PDF. Maximum size: 5 MB.
+            </p>
+
+            <button
+              onClick={submitPaymentProof}
+              disabled={loading || !proof}
+              style={{
+                ...buttonStyle,
+                width: "100%",
+                padding: "16px",
+                background: "#218838",
+                opacity: loading || !proof ? 0.6 : 1
+              }}
+            >
+              {loading
+                ? "Uploading payment proof..."
+                : "Submit Order & Send WhatsApp Notification"}
+            </button>
+          </section>
+        )}
+
+        {step === "complete" && (
+          <section style={cardStyle}>
+            <h2 style={{ color: "#218838" }}>
+              Order Submitted Successfully!
+            </h2>
+            <p>Your order number is: <strong>{orderNumber}</strong></p>
+            <p>
+              Your payment proof has been uploaded.
+              Payment verification is pending.
+            </p>
+          </section>
+        )}
+
+        {error && (
+          <div
+            style={{
+              background: "#ffe5e5",
+              color: "#b00020",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "15px"
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <footer
+          style={{
+            textAlign: "center",
+            padding: "20px",
+            color: "#75451f"
+          }}
+        >
+          <p>
+            Thank you for choosing Annai Foods ❤️
+          </p>
+          <p>Fresh Homemade Idiyappam · Made with Love</p>
+        </footer>
+      </div>
+    </main>
+  );
+}
