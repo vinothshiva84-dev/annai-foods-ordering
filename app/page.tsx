@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -40,10 +39,8 @@ const COLLECTION_ADDRESS =
 
 const STORAGE_BUCKET = "payment-proofs";
 
-// Annai Foods WhatsApp notification number
 const WHATSAPP_NUMBER = "27607104011";
 
-// Enter the verified bank details before accepting orders.
 const BANK = {
   name: "FNB",
   holder: "Lavanya Sivagopal",
@@ -52,16 +49,14 @@ const BANK = {
   branch: "REPLACE_WITH_YOUR_BRANCH_CODE"
 };
 
+// Use the URL and publishable key from the SAME Supabase project.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function Home() {
-  const [quantities, setQuantities] =
-    useState<Record<string, number>>({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState("");
@@ -71,8 +66,9 @@ export default function Home() {
   const [reservedOrderId, setReservedOrderId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] =
-    useState<"details" | "payment" | "complete">("details");
+  const [step, setStep] = useState<"details" | "payment" | "complete">(
+    "details"
+  );
 
   const selectedItems = MENU.filter(
     item => (quantities[item.name] || 0) > 0
@@ -132,9 +128,7 @@ export default function Home() {
 
   function getMinimumCollectionDate() {
     const now = getJohannesburgNow();
-    const date = new Date(
-      Date.UTC(now.year, now.month - 1, now.day)
-    );
+    const date = new Date(Date.UTC(now.year, now.month - 1, now.day));
 
     if (now.hour >= 12) {
       date.setUTCDate(date.getUTCDate() + 1);
@@ -146,14 +140,15 @@ export default function Home() {
   function formatCollectionDate(value: string) {
     const [year, month, day] = value.split("-").map(Number);
 
-    return new Date(
-      Date.UTC(year, month - 1, day)
-    ).toLocaleDateString("en-ZA", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC"
-    });
+    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
+      "en-ZA",
+      {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC"
+      }
+    );
   }
 
   function generateOrderNumber() {
@@ -205,26 +200,23 @@ export default function Home() {
     return true;
   }
 
-  // STEP 1: Create the order UUID on the website.
-  // Insert without SELECT permission.
+  // STEP 1: Reserve an order number.
   async function reserveOrder() {
     setError("");
 
     if (!validateDetails()) return;
 
     if (!supabaseUrl || !supabaseKey) {
-      setError("Supabase environment variables are not configured.");
+      setError(
+        "Supabase settings are missing. Please check the Vercel environment variables."
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      let savedOrder: {
-        id: string;
-        order_number: string;
-      } | null = null;
-
+      let savedOrder: { id: string; order_number: string } | null = null;
       let lastError: any = null;
 
       for (let attempt = 0; attempt < 30; attempt++) {
@@ -256,26 +248,23 @@ export default function Home() {
 
         lastError = insertError;
 
-        // Retry only when the order number already exists.
         if (insertError.code !== "23505") {
           throw insertError;
         }
       }
 
       if (!savedOrder) {
-        throw lastError ||
-          new Error("Could not reserve an order number.");
+        throw lastError || new Error("Could not reserve an order number.");
       }
 
       setOrderNumber(savedOrder.order_number);
       setReservedOrderId(savedOrder.id);
       setStep("payment");
-
     } catch (err: any) {
-      console.error(err);
+      console.error("Order creation error:", err);
+
       setError(
-        err?.message ||
-        "Unable to reserve your order. Please try again."
+        err?.message || "Unable to reserve your order. Please try again."
       );
     } finally {
       setLoading(false);
@@ -296,7 +285,7 @@ export default function Home() {
       BANK.branch === "REPLACE_WITH_YOUR_BRANCH_CODE"
     ) {
       setError(
-        "FNB account number and branch code must be entered before orders can be submitted."
+        "The FNB account number and branch code must be entered before orders can be submitted."
       );
       return;
     }
@@ -356,8 +345,16 @@ export default function Home() {
 
       orderUpdated = true;
 
-      // The proof remains in the private storage bucket.
-      // Its storage path is included in the notification.
+      let proofLink = uploadedPath;
+
+      const { data: signedData } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
+
+      if (signedData?.signedUrl) {
+        proofLink = signedData.signedUrl;
+      }
+
       const orderLines = getOrderLines();
 
       const message = [
@@ -371,8 +368,7 @@ export default function Home() {
         "",
         "ORDER DETAILS:",
         ...orderLines.map(
-          item =>
-            `${item.name} x ${item.quantity} = R${item.subtotal}`
+          item => `${item.name} x ${item.quantity} = R${item.subtotal}`
         ),
         "",
         `Total selected items: ${itemCount}`,
@@ -380,13 +376,12 @@ export default function Home() {
         `GRAND TOTAL: R${total}`,
         "",
         "PAYMENT STATUS: Proof uploaded - awaiting verification",
-        `PAYMENT PROOF STORAGE PATH: ${uploadedPath}`,
+        `PAYMENT PROOF: ${proofLink}`,
         "",
         "HOME COLLECTION ADDRESS:",
         COLLECTION_ADDRESS,
         "",
-        "Please check the payment proof in Supabase Storage",
-        "and verify the EFT payment before confirming the order.",
+        "Please verify the EFT payment before confirming the order.",
         "",
         "Thank you for choosing Annai Foods!"
       ].join("\n");
@@ -400,7 +395,7 @@ export default function Home() {
         encodeURIComponent(message);
 
     } catch (err: any) {
-      console.error(err);
+      console.error("Payment proof submission error:", err);
 
       if (uploadedPath && !orderUpdated) {
         await supabase.storage
@@ -409,8 +404,7 @@ export default function Home() {
       }
 
       setError(
-        err?.message ||
-        "Payment proof upload failed. Please try again."
+        err?.message || "Payment proof upload failed. Please try again."
       );
     } finally {
       setLoading(false);
@@ -525,13 +519,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "9px"
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
                 <button
                   style={buttonStyle}
                   disabled={step !== "details"}
@@ -554,9 +542,7 @@ export default function Home() {
           ))}
         </section>
 
-        <section
-          style={{ ...cardStyle, border: "2px solid #218838" }}
-        >
+        <section style={{ ...cardStyle, border: "2px solid #218838" }}>
           <h2>🛒 Your Shopping Cart</h2>
 
           {selectedItems.length === 0 ? (
@@ -587,13 +573,7 @@ export default function Home() {
                   </strong>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "7px"
-                  }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                   <button
                     style={buttonStyle}
                     disabled={step !== "details"}
@@ -697,17 +677,13 @@ export default function Home() {
                 background: "#218838"
               }}
             >
-              {loading
-                ? "Generating order number..."
-                : "Continue to EFT Payment"}
+              {loading ? "Generating order number..." : "Continue to EFT Payment"}
             </button>
           )}
         </section>
 
         {step === "payment" && (
-          <section
-            style={{ ...cardStyle, border: "2px solid #218838" }}
-          >
+          <section style={{ ...cardStyle, border: "2px solid #218838" }}>
             <h2>🏦 FNB EFT Payment</h2>
 
             <div
@@ -743,8 +719,8 @@ export default function Home() {
 
             <p>
               Please pay the full amount using your order number as the
-              payment reference. Your order will remain subject to
-              payment verification.
+              payment reference. Your order will remain subject to payment
+              verification.
             </p>
 
             <hr />
@@ -794,11 +770,7 @@ export default function Home() {
             <h2 style={{ color: "#218838" }}>
               Order Submitted Successfully!
             </h2>
-
-            <p>
-              Your order number is: <strong>{orderNumber}</strong>
-            </p>
-
+            <p>Your order number is: <strong>{orderNumber}</strong></p>
             <p>
               Your payment proof has been uploaded.
               Payment verification is pending.
@@ -827,7 +799,9 @@ export default function Home() {
             color: "#75451f"
           }}
         >
-          <p>Thank you for choosing Annai Foods ❤️</p>
+          <p>
+            Thank you for choosing Annai Foods ❤️
+          </p>
           <p>Fresh Homemade Idiyappam · Made with Love</p>
         </footer>
       </div>
