@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -41,22 +42,31 @@ const COLLECTION_ADDRESS =
 const STORAGE_BUCKET = "payment-proofs";
 const WHATSAPP_NUMBER = "27651188768";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    "Missing Supabase configuration. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel."
+  );
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+type CollectionMethod = "home" | "uber";
 
 export default function Home() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState("");
+  const [collectionMethod, setCollectionMethod] =
+    useState<CollectionMethod>("home");
   const [proof, setProof] = useState<File | null>(null);
+
+  const [orderNumber, setOrderNumber] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const selectedItems = MENU.filter(
@@ -155,7 +165,7 @@ export default function Home() {
     }));
   }
 
-  function validateForm() {
+  function validateDetails() {
     if (!customer.trim()) {
       setError("Please enter your full name.");
       return false;
@@ -186,8 +196,13 @@ export default function Home() {
       return false;
     }
 
+    if (!collectionMethod) {
+      setError("Please select your collection method.");
+      return false;
+    }
+
     if (!proof) {
-      setError("Please upload your proof of payment or payment screenshot.");
+      setError("Please upload your proof of payment.");
       return false;
     }
 
@@ -213,18 +228,14 @@ export default function Home() {
   async function submitOrder() {
     setError("");
 
-    if (!validateForm()) return;
-
-    if (!supabaseUrl || !supabaseKey) {
-      setError("Supabase environment variables are not configured.");
-      return;
-    }
+    if (!validateDetails()) return;
 
     setLoading(true);
 
     let uploadedPath = "";
 
     try {
+      // Upload the customer's payment proof.
       const extension =
         proof!.name.split(".").pop()?.toLowerCase() || "jpg";
 
@@ -240,7 +251,8 @@ export default function Home() {
 
       if (uploadError) throw uploadError;
 
-      let savedOrder: any = null;
+      // Generate a unique random-looking 4-digit order number.
+      let savedOrder: { order_number: string } | null = null;
       let lastError: any = null;
 
       for (let attempt = 0; attempt < 30; attempt++) {
@@ -256,10 +268,11 @@ export default function Home() {
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
             collection_date: collectionDate,
+            collection_method: collectionMethod,
             payment_proof_path: uploadedPath,
             payment_status: "pending_verification"
           })
-          .select("id, order_number")
+          .select("order_number")
           .single();
 
         if (!insertError && data) {
@@ -275,19 +288,30 @@ export default function Home() {
       }
 
       if (!savedOrder) {
-        throw lastError || new Error("Could not create your order.");
+        throw lastError || new Error(
+          "Could not generate a unique order number. Please try again."
+        );
       }
 
       setOrderNumber(savedOrder.order_number);
 
-      const { data: signedData, error: signedError } =
-        await supabase.storage
-          .from(STORAGE_BUCKET)
-          .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
+      // Create a temporary link to the uploaded proof.
+      let proofLink = uploadedPath;
 
-      if (signedError || !signedData?.signedUrl) {
-        throw signedError || new Error("Could not create payment proof link.");
+      const { data: signedData } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
+
+      if (signedData?.signedUrl) {
+        proofLink = signedData.signedUrl;
       }
+
+      const collectionDescription =
+        collectionMethod === "home"
+          ? "Collect from Annai Foods home"
+          : "Customer books Uber Package and arranges courier pickup";
+
+      const orderLines = getOrderLines();
 
       const message = [
         "ANNAI FOODS - NEW ORDER",
@@ -296,9 +320,14 @@ export default function Home() {
         `Customer: ${customer}`,
         `WhatsApp: ${phone}`,
         `Collection date: ${formatCollectionDate(collectionDate)}`,
+        `Collection method: ${collectionDescription}`,
+        "",
+        collectionMethod === "home"
+          ? `Collection address: ${COLLECTION_ADDRESS}`
+          : "Customer will arrange and pay for the Uber Package courier.",
         "",
         "ORDER DETAILS:",
-        ...getOrderLines().map(
+        ...orderLines.map(
           item => `${item.name} x ${item.quantity} = R${item.subtotal}`
         ),
         "",
@@ -306,17 +335,17 @@ export default function Home() {
         `Total Idiyappam plates: ${idiyappamPlates}`,
         `GRAND TOTAL: R${total}`,
         "",
-        "PAYMENT STATUS: POP / payment screenshot uploaded - awaiting verification",
-        `PAYMENT PROOF: ${signedData.signedUrl}`,
+        "PAYMENT STATUS: Proof uploaded - awaiting verification",
+        `PAYMENT PROOF: ${proofLink}`,
         "",
-        "HOME COLLECTION ADDRESS:",
-        COLLECTION_ADDRESS,
+        "Please verify the payment proof.",
         "",
-        "Please check the payment proof and verify the payment."
+        "Thank you for choosing Annai Foods!"
       ].join("\n");
 
       setSubmitted(true);
 
+      // Open WhatsApp with the order details ready to send.
       window.location.href =
         "https://wa.me/" +
         WHATSAPP_NUMBER +
@@ -326,8 +355,15 @@ export default function Home() {
     } catch (err: any) {
       console.error(err);
 
+      // Remove the uploaded file if the order could not be saved.
+      if (uploadedPath) {
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove([uploadedPath]);
+      }
+
       setError(
-        err?.message || "Order submission failed. Please try again."
+        err?.message || "Unable to submit your order. Please try again."
       );
     } finally {
       setLoading(false);
@@ -406,7 +442,7 @@ export default function Home() {
             Fresh Homemade Idiyappam · Made with Love
           </h3>
 
-          <p>Choose your food and upload your proof of payment.</p>
+          <p>Choose your food, review your cart and place your order.</p>
         </header>
 
         <section style={cardStyle}>
@@ -445,7 +481,7 @@ export default function Home() {
               <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
                 <button
                   style={buttonStyle}
-                  disabled={loading || submitted}
+                  disabled={submitted || loading}
                   onClick={() => changeQuantity(item.name, -1)}
                 >
                   −
@@ -455,7 +491,7 @@ export default function Home() {
 
                 <button
                   style={buttonStyle}
-                  disabled={loading || submitted}
+                  disabled={submitted || loading}
                   onClick={() => changeQuantity(item.name, 1)}
                 >
                   +
@@ -499,7 +535,7 @@ export default function Home() {
                 <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                   <button
                     style={buttonStyle}
-                    disabled={loading || submitted}
+                    disabled={submitted || loading}
                     onClick={() => changeQuantity(item.name, -1)}
                   >
                     −
@@ -509,7 +545,7 @@ export default function Home() {
 
                   <button
                     style={buttonStyle}
-                    disabled={loading || submitted}
+                    disabled={submitted || loading}
                     onClick={() => changeQuantity(item.name, 1)}
                   >
                     +
@@ -543,6 +579,91 @@ export default function Home() {
         </section>
 
         <section style={cardStyle}>
+          <h2>🚚 How Would You Like to Receive Your Order?</h2>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+              padding: "15px",
+              marginBottom: "12px",
+              border: collectionMethod === "home"
+                ? "2px solid #218838"
+                : "1px solid #ddd",
+              borderRadius: "10px",
+              cursor: "pointer",
+              background: collectionMethod === "home" ? "#f0f8ef" : "white"
+            }}
+          >
+            <input
+              type="radio"
+              name="collectionMethod"
+              value="home"
+              checked={collectionMethod === "home"}
+              disabled={submitted || loading}
+              onChange={() => setCollectionMethod("home")}
+              style={{ marginTop: "5px" }}
+            />
+
+            <span>
+              <strong>🏠 Collect from Home</strong>
+              <br />
+              <span style={{ fontSize: "14px", color: "#666" }}>
+                You collect your order from our home collection address.
+              </span>
+            </span>
+          </label>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "12px",
+              padding: "15px",
+              border: collectionMethod === "uber"
+                ? "2px solid #218838"
+                : "1px solid #ddd",
+              borderRadius: "10px",
+              cursor: "pointer",
+              background: collectionMethod === "uber" ? "#f0f8ef" : "white"
+            }}
+          >
+            <input
+              type="radio"
+              name="collectionMethod"
+              value="uber"
+              checked={collectionMethod === "uber"}
+              disabled={submitted || loading}
+              onChange={() => setCollectionMethod("uber")}
+              style={{ marginTop: "5px" }}
+            />
+
+            <span>
+              <strong>🚗 Customer Books Uber Package</strong>
+              <br />
+              <span style={{ fontSize: "14px", color: "#666" }}>
+                You arrange and pay for an Uber Package courier to collect
+                your order from Annai Foods.
+              </span>
+            </span>
+          </label>
+
+          {collectionMethod === "uber" && (
+            <p style={{
+              background: "#fff5e8",
+              padding: "12px",
+              borderRadius: "8px",
+              fontSize: "14px"
+            }}>
+              Please arrange your Uber Package pickup after your order has
+              been confirmed. The courier must collect from our home
+              collection address.
+            </p>
+          )}
+        </section>
+
+        <section style={cardStyle}>
           <h2>Customer Details</h2>
 
           <label>Your Name</label>
@@ -551,7 +672,7 @@ export default function Home() {
             style={fieldStyle}
             placeholder="Enter your full name"
             value={customer}
-            disabled={loading || submitted}
+            disabled={submitted || loading}
             onChange={e => setCustomer(e.target.value)}
           />
 
@@ -562,7 +683,7 @@ export default function Home() {
             type="tel"
             placeholder="Enter your phone number"
             value={phone}
-            disabled={loading || submitted}
+            disabled={submitted || loading}
             onChange={e => setPhone(e.target.value)}
           />
 
@@ -573,7 +694,7 @@ export default function Home() {
             type="date"
             min={getMinimumCollectionDate()}
             value={collectionDate}
-            disabled={loading || submitted}
+            disabled={submitted || loading}
             onChange={e => {
               setCollectionDate(e.target.value);
               setError("");
@@ -586,23 +707,21 @@ export default function Home() {
               : "Select today before 12 PM or any future date."}
           </p>
 
-          <p><strong>Collection:</strong> Home collection only</p>
           <p><strong>Order cutoff:</strong> 12:00 PM Johannesburg time</p>
+        </section>
 
-          <hr />
-
+        <section style={{ ...cardStyle, border: "2px solid #218838" }}>
           <h2>📸 Upload Proof of Payment</h2>
 
           <p>
-            Please upload your POP or a screenshot showing your payment.
-            Your order cannot be submitted without it.
+            Please upload a screenshot or document showing your payment.
           </p>
 
           <input
             style={fieldStyle}
             type="file"
             accept="image/jpeg,image/png,application/pdf"
-            disabled={loading || submitted}
+            disabled={submitted || loading}
             onChange={e => {
               setProof(e.target.files?.[0] || null);
               setError("");
@@ -616,7 +735,7 @@ export default function Home() {
           )}
 
           <p style={{ fontSize: "13px", color: "#777" }}>
-            Accepted formats: JPG, PNG or PDF. Maximum size: 5 MB.
+            Accepted formats: JPG, PNG and PDF. Maximum size: 5 MB.
           </p>
 
           <button
@@ -631,8 +750,10 @@ export default function Home() {
             }}
           >
             {loading
-              ? "Uploading proof and submitting order..."
-              : "Submit Order with Proof of Payment"}
+              ? "Submitting your order..."
+              : submitted
+                ? "Order Submitted"
+                : "Submit Order & Send WhatsApp Notification"}
           </button>
         </section>
 
@@ -641,8 +762,19 @@ export default function Home() {
             <h2 style={{ color: "#218838" }}>
               Order Submitted!
             </h2>
-            <p>Your order number is: <strong>{orderNumber}</strong></p>
-            <p>Your payment proof has been uploaded and is awaiting verification.</p>
+
+            <p>
+              Your order number is: <strong>{orderNumber}</strong>
+            </p>
+
+            <p>
+              Your payment proof has been uploaded. Payment verification
+              is pending.
+            </p>
+
+            <p>
+              Please complete the WhatsApp message to notify Annai Foods.
+            </p>
           </section>
         )}
 
@@ -673,5 +805,39 @@ export default function Home() {
       </div>
     </main>
   );
-    }
-    
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
