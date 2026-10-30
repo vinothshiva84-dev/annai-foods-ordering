@@ -3,7 +3,14 @@
 
 import { useState } from "react";
 
-const MENU = [
+type MenuItem = {
+  name: string;
+  price: number;
+  type?: "idiyappam" | "combo";
+  description?: string;
+};
+
+const MENU: MenuItem[] = [
   { name: "Rice Idiyappam", price: 30, type: "idiyappam" },
   { name: "Ragi Idiyappam", price: 35, type: "idiyappam" },
   { name: "Wheat Idiyappam", price: 35, type: "idiyappam" },
@@ -31,7 +38,7 @@ const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
 export default function Home() {
-  const [quantities, setQuantities] = useState({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
@@ -50,28 +57,21 @@ export default function Home() {
     0
   );
 
-  const idiyappamPlates = selectedItems.reduce(
-    (sum, item) => {
-      if (item.type === "idiyappam") {
-        return sum + quantities[item.name];
-      }
-      if (item.type === "combo") {
-        return sum + quantities[item.name] * 2;
-      }
-      return sum;
-    },
-    0
-  );
+  const idiyappamPlates = selectedItems.reduce((sum, item) => {
+    if (item.type === "idiyappam") {
+      return sum + quantities[item.name];
+    }
+    if (item.type === "combo") {
+      return sum + quantities[item.name] * 2;
+    }
+    return sum;
+  }, 0);
 
-  function changeQuantity(name, amount) {
-    setQuantities(previous => {
-      const next = Math.max(
-        0,
-        (previous[name] || 0) + amount
-      );
-
-      return { ...previous, [name]: next };
-    });
+  function changeQuantity(name: string, amount: number) {
+    setQuantities(previous => ({
+      ...previous,
+      [name]: Math.max(0, (previous[name] || 0) + amount)
+    }));
     setError("");
   }
 
@@ -96,35 +96,34 @@ export default function Home() {
       return;
     }
 
-    const now = new Date();
     const southAfricaTime = new Date(
-      now.toLocaleString("en-US", {
+      new Date().toLocaleString("en-US", {
         timeZone: "Africa/Johannesburg"
       })
     );
 
-    if (
-      southAfricaTime.getHours() >= 12
-    ) {
+    if (southAfricaTime.getHours() >= 12) {
       setError("Orders must be placed before 12:00 PM.");
       return;
     }
 
-    const orderLines = selectedItems.map(item =>
-      `${item.name} x ${quantities[item.name]} = R${item.price * quantities[item.name]}`
+    const orderLines = selectedItems.map(
+      item =>
+        `${item.name} x ${quantities[item.name]} = R${item.price * quantities[item.name]}`
     );
 
     const message = [
       "ANNAI FOODS - NEW ORDER",
       "",
+      "Welcome to Annai Foods!",
       `Customer: ${customer}`,
       `WhatsApp: ${phone}`,
       "",
       "MY ORDER:",
       ...orderLines,
       "",
+      `Total selected items: ${itemCount}`,
       `Total Idiyappam plates: ${idiyappamPlates}`,
-      `Total items: ${itemCount}`,
       `GRAND TOTAL: R${total}`,
       "",
       "HOME COLLECTION ADDRESS:",
@@ -135,7 +134,7 @@ export default function Home() {
 
     window.open(
       "https://wa.me/27651188768?text=" +
-      encodeURIComponent(message),
+        encodeURIComponent(message),
       "_blank"
     );
   }
@@ -147,7 +146,7 @@ export default function Home() {
     padding: "9px 14px",
     borderRadius: "8px",
     fontSize: "17px",
-    fontWeight: "bold",
+    fontWeight: "bold" as const,
     cursor: "pointer"
   };
 
@@ -158,7 +157,7 @@ export default function Home() {
     border: "1px solid #ddd",
     borderRadius: "8px",
     fontSize: "16px",
-    boxSizing: "border-box"
+    boxSizing: "border-box" as const
   };
 
   const cardStyle = {
@@ -179,12 +178,43 @@ export default function Home() {
     }}>
       <div style={{ maxWidth: "650px", margin: "auto" }}>
 
-        <header style={{ textAlign: "center", padding: "20px" }}>
-          <h1 style={{ color: "#75451f", fontSize: "34px" }}>
-            Annai Foods
+        <header style={{
+          textAlign: "center",
+          padding: "22px 16px 26px",
+          marginBottom: "16px",
+          background: "#fffdf5",
+          border: "1px solid #dce8d5",
+          borderRadius: "18px",
+          boxShadow: "0 5px 18px #174b2110"
+        }}>
+          <img
+            src="/annai-foods-logo.jpg"
+            alt="Annai Foods Logo"
+            style={{
+              display: "block",
+              width: "min(100%, 330px)",
+              height: "auto",
+              objectFit: "contain",
+              margin: "0 auto 12px",
+              borderRadius: "50%"
+            }}
+          />
+
+          <h1 style={{
+            color: "#075b20",
+            fontSize: "30px",
+            margin: "8px 0"
+          }}>
+            Welcome to Annai Foods ❤️
           </h1>
-          <h3>Homemade with Love ❤️</h3>
-          <p>Order your favourite food through WhatsApp.</p>
+
+          <h3 style={{ color: "#397c2c", margin: "6px 0" }}>
+            Fresh Homemade Idiyappam · Made with Love
+          </h3>
+
+          <p>
+            Choose your food, review your cart and place your order through WhatsApp.
+          </p>
         </header>
 
         <section style={cardStyle}>
@@ -204,11 +234,13 @@ export default function Home() {
             }}>
               <div style={{ flex: 1 }}>
                 <strong>{item.name}</strong>
+
                 {item.description && (
                   <div style={{ fontSize: "12px", color: "#777" }}>
                     {item.description}
                   </div>
                 )}
+
                 <div style={{
                   color: "#75451f",
                   fontWeight: "bold",
@@ -227,7 +259,9 @@ export default function Home() {
                   style={buttonStyle}
                   onClick={() => changeQuantity(item.name, -1)}
                 >−</button>
+
                 <strong>{quantities[item.name] || 0}</strong>
+
                 <button
                   style={buttonStyle}
                   onClick={() => changeQuantity(item.name, 1)}
@@ -259,9 +293,11 @@ export default function Home() {
               }}>
                 <div style={{ flex: 1 }}>
                   <strong>{item.name}</strong>
+
                   <div style={{ fontSize: "13px", color: "#777" }}>
                     R{item.price} × {quantities[item.name]}
                   </div>
+
                   <strong style={{ color: "#75451f" }}>
                     R{item.price * quantities[item.name]}
                   </strong>
@@ -276,7 +312,9 @@ export default function Home() {
                     style={buttonStyle}
                     onClick={() => changeQuantity(item.name, -1)}
                   >−</button>
+
                   <strong>{quantities[item.name]}</strong>
+
                   <button
                     style={buttonStyle}
                     onClick={() => changeQuantity(item.name, 1)}
@@ -290,9 +328,11 @@ export default function Home() {
             <p>
               Total selected items: <strong>{itemCount}</strong>
             </p>
+
             <p>
               Total Idiyappam plates: <strong>{idiyappamPlates}</strong>
             </p>
+
             <h2 style={{ color: "#218838" }}>
               Grand Total: R{total}
             </h2>
@@ -302,6 +342,7 @@ export default function Home() {
         <section style={cardStyle}>
           <h2>📍 Home Collection Address</h2>
           <p>{COLLECTION_ADDRESS}</p>
+
           <a
             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(COLLECTION_ADDRESS)}`}
             target="_blank"
@@ -354,7 +395,11 @@ export default function Home() {
             Place Order on WhatsApp
           </button>
 
-          <p style={{ textAlign: "center", fontSize: "13px", color: "#777" }}>
+          <p style={{
+            textAlign: "center",
+            fontSize: "13px",
+            color: "#777"
+          }}>
             Please review your cart before sending your order.
           </p>
         </section>
@@ -366,5 +411,5 @@ export default function Home() {
       </div>
     </main>
   );
-      }
-                    
+        }
+                              
