@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -38,18 +39,7 @@ const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
 const STORAGE_BUCKET = "payment-proofs";
-
-// Annai Foods WhatsApp notification number
 const WHATSAPP_NUMBER = "27651188768";
-
-// Enter your verified FNB details before publishing.
-const BANK = {
-  name: "FNB",
-  holder: "Lavanya Sivagopal",
-  account: "REPLACE_WITH_YOUR_FNB_ACCOUNT_NUMBER",
-  type: "FNB Aspire Current Account",
-  branch: "REPLACE_WITH_YOUR_BRANCH_CODE"
-};
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey =
@@ -64,14 +54,11 @@ export default function Home() {
   const [phone, setPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState("");
   const [proof, setProof] = useState<File | null>(null);
-
-  const [orderNumber, setOrderNumber] = useState("");
-  const [reservedOrderId, setReservedOrderId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"details" | "payment" | "complete">(
-    "details"
-  );
+  const [orderNumber, setOrderNumber] = useState("");
+
+  const [submitted, setSubmitted] = useState(false);
 
   const selectedItems = MENU.filter(
     item => (quantities[item.name] || 0) > 0
@@ -169,7 +156,7 @@ export default function Home() {
     }));
   }
 
-  function validateDetails() {
+  function validateForm() {
     if (!customer.trim()) {
       setError("Please enter your full name.");
       return false;
@@ -200,14 +187,34 @@ export default function Home() {
       return false;
     }
 
+    if (!proof) {
+      setError("Please upload your proof of payment or payment screenshot.");
+      return false;
+    }
+
+    if (proof.size > 5 * 1024 * 1024) {
+      setError("Payment proof must be 5 MB or smaller.");
+      return false;
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "application/pdf"
+    ];
+
+    if (!allowedTypes.includes(proof.type)) {
+      setError("Please upload a JPG, PNG or PDF file.");
+      return false;
+    }
+
     return true;
   }
 
-  // STEP 1: Reserve a unique order number before payment.
-  async function reserveOrder() {
+  async function submitOrder() {
     setError("");
 
-    if (!validateDetails()) return;
+    if (!validateForm()) return;
 
     if (!supabaseUrl || !supabaseKey) {
       setError("Supabase environment variables are not configured.");
@@ -216,8 +223,27 @@ export default function Home() {
 
     setLoading(true);
 
+    let uploadedPath = "";
+
     try {
-      let savedOrder: { id: string; order_number: string } | null = null;
+      // Upload POP or payment screenshot first.
+      const extension =
+        proof!.name.split(".").pop()?.toLowerCase() || "jpg";
+
+      uploadedPath =
+        `${crypto.randomUUID()}/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(uploadedPath, proof!, {
+          contentType: proof!.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Generate a unique-looking 4-digit order number.
+      let savedOrder: any = null;
       let lastError: any = null;
 
       for (let attempt = 0; attempt < 30; attempt++) {
@@ -233,8 +259,8 @@ export default function Home() {
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
             collection_date: collectionDate,
-            payment_proof_path: null,
-            payment_status: "awaiting_payment"
+            payment_proof_path: uploadedPath,
+            payment_status: "pending_verification"
           })
           .select("id, order_number")
           .single();
@@ -252,119 +278,31 @@ export default function Home() {
       }
 
       if (!savedOrder) {
-        throw lastError || new Error("Could not reserve an order number.");
+        throw lastError || new Error("Could not create your order.");
       }
 
       setOrderNumber(savedOrder.order_number);
-      setReservedOrderId(savedOrder.id);
-      setStep("payment");
-    } catch (err: any) {
-      console.error(err);
-      setError(
-        err?.message || "Unable to reserve your order. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  // STEP 2: Upload payment proof and update the reserved order.
-  async function submitPaymentProof() {
-    setError("");
+      // Create a link to the uploaded payment proof.
+      const { data: signedData, error: signedError } =
+        await supabase.storage
+          .from(STORAGE_BUCKET)
+          .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
 
-    if (!reservedOrderId || !orderNumber) {
-      setError("Please generate your order number first.");
-      return;
-    }
-
-    if (
-      BANK.account === "REPLACE_WITH_YOUR_FNB_ACCOUNT_NUMBER" ||
-      BANK.branch === "REPLACE_WITH_YOUR_BRANCH_CODE"
-    ) {
-      setError(
-        "FNB account number and branch code must be entered before orders can be submitted."
-      );
-      return;
-    }
-
-    if (!proof) {
-      setError("Please upload your proof of payment or payment screenshot.");
-      return;
-    }
-
-    if (proof.size > 5 * 1024 * 1024) {
-      setError("Payment proof must be 5 MB or smaller.");
-      return;
-    }
-
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "application/pdf"
-    ];
-
-    if (!allowedTypes.includes(proof.type)) {
-      setError("Please upload a JPG, PNG or PDF file.");
-      return;
-    }
-
-    setLoading(true);
-
-    let uploadedPath = "";
-    let orderUpdated = false;
-
-    try {
-      const extension =
-        proof.name.split(".").pop()?.toLowerCase() || "jpg";
-
-      uploadedPath =
-        `${reservedOrderId}/${crypto.randomUUID()}.${extension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(uploadedPath, proof, {
-          contentType: proof.type,
-          upsert: false
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({
-          payment_proof_path: uploadedPath,
-          payment_status: "pending_verification"
-        })
-        .eq("id", reservedOrderId)
-        .eq("order_number", orderNumber);
-
-      if (updateError) throw updateError;
-
-      orderUpdated = true;
-
-      let proofLink = uploadedPath;
-
-      const { data: signedData } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .createSignedUrl(uploadedPath, 60 * 60 * 24 * 7);
-
-      if (signedData?.signedUrl) {
-        proofLink = signedData.signedUrl;
+      if (signedError || !signedData?.signedUrl) {
+        throw signedError || new Error("Could not create payment proof link.");
       }
-
-      const orderLines = getOrderLines();
 
       const message = [
         "ANNAI FOODS - NEW ORDER",
         "",
-        `Order number: ${orderNumber}`,
-        `EFT payment reference: ${orderNumber}`,
+        `Order number: ${savedOrder.order_number}`,
         `Customer: ${customer}`,
         `WhatsApp: ${phone}`,
         `Collection date: ${formatCollectionDate(collectionDate)}`,
         "",
         "ORDER DETAILS:",
-        ...orderLines.map(
+        ...getOrderLines().map(
           item => `${item.name} x ${item.quantity} = R${item.subtotal}`
         ),
         "",
@@ -372,16 +310,16 @@ export default function Home() {
         `Total Idiyappam plates: ${idiyappamPlates}`,
         `GRAND TOTAL: R${total}`,
         "",
-        "PAYMENT STATUS: Proof of payment uploaded - awaiting verification",
-        `PAYMENT PROOF: ${proofLink}`,
+        "PAYMENT STATUS: POP / payment screenshot uploaded - awaiting verification",
+        `PAYMENT PROOF: ${signedData.signedUrl}`,
         "",
         "HOME COLLECTION ADDRESS:",
         COLLECTION_ADDRESS,
         "",
-        "Please check the uploaded proof of payment and verify the payment before confirming the order."
+        "Please check the payment proof and verify the payment."
       ].join("\n");
 
-      setStep("complete");
+      setSubmitted(true);
 
       window.location.href =
         "https://wa.me/" +
@@ -392,14 +330,8 @@ export default function Home() {
     } catch (err: any) {
       console.error(err);
 
-      if (uploadedPath && !orderUpdated) {
-        await supabase.storage
-          .from(STORAGE_BUCKET)
-          .remove([uploadedPath]);
-      }
-
       setError(
-        err?.message || "Payment proof upload failed. Please try again."
+        err?.message || "Order submission failed. Please try again."
       );
     } finally {
       setLoading(false);
@@ -478,7 +410,7 @@ export default function Home() {
             Fresh Homemade Idiyappam · Made with Love
           </h3>
 
-          <p>Choose your food, review your cart and pay by EFT.</p>
+          <p>Choose your food and upload your proof of payment.</p>
         </header>
 
         <section style={cardStyle}>
@@ -517,7 +449,7 @@ export default function Home() {
               <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
                 <button
                   style={buttonStyle}
-                  disabled={step !== "details"}
+                  disabled={loading || submitted}
                   onClick={() => changeQuantity(item.name, -1)}
                 >
                   −
@@ -527,7 +459,7 @@ export default function Home() {
 
                 <button
                   style={buttonStyle}
-                  disabled={step !== "details"}
+                  disabled={loading || submitted}
                   onClick={() => changeQuantity(item.name, 1)}
                 >
                   +
@@ -571,7 +503,7 @@ export default function Home() {
                 <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
                   <button
                     style={buttonStyle}
-                    disabled={step !== "details"}
+                    disabled={loading || submitted}
                     onClick={() => changeQuantity(item.name, -1)}
                   >
                     −
@@ -581,7 +513,7 @@ export default function Home() {
 
                   <button
                     style={buttonStyle}
-                    disabled={step !== "details"}
+                    disabled={loading || submitted}
                     onClick={() => changeQuantity(item.name, 1)}
                   >
                     +
@@ -623,7 +555,7 @@ export default function Home() {
             style={fieldStyle}
             placeholder="Enter your full name"
             value={customer}
-            disabled={step !== "details"}
+            disabled={loading || submitted}
             onChange={e => setCustomer(e.target.value)}
           />
 
@@ -634,7 +566,7 @@ export default function Home() {
             type="tel"
             placeholder="Enter your phone number"
             value={phone}
-            disabled={step !== "details"}
+            disabled={loading || submitted}
             onChange={e => setPhone(e.target.value)}
           />
 
@@ -645,7 +577,7 @@ export default function Home() {
             type="date"
             min={getMinimumCollectionDate()}
             value={collectionDate}
-            disabled={step !== "details"}
+            disabled={loading || submitted}
             onChange={e => {
               setCollectionDate(e.target.value);
               setError("");
@@ -661,115 +593,60 @@ export default function Home() {
           <p><strong>Collection:</strong> Home collection only</p>
           <p><strong>Order cutoff:</strong> 12:00 PM Johannesburg time</p>
 
-          {step === "details" && (
-            <button
-              onClick={reserveOrder}
-              disabled={loading}
-              style={{
-                ...buttonStyle,
-                width: "100%",
-                padding: "16px",
-                background: "#218838"
-              }}
-            >
-              {loading ? "Generating order number..." : "Continue to EFT Payment"}
-            </button>
+          <hr />
+
+          <h2>📸 Upload Proof of Payment</h2>
+
+          <p>
+            Please upload your POP or a screenshot showing your payment.
+            Your order cannot be submitted without it.
+          </p>
+
+          <input
+            style={fieldStyle}
+            type="file"
+            accept="image/jpeg,image/png,application/pdf"
+            disabled={loading || submitted}
+            onChange={e => {
+              setProof(e.target.files?.[0] || null);
+              setError("");
+            }}
+          />
+
+          {proof && (
+            <p style={{ color: "#218838" }}>
+              Selected file: {proof.name}
+            </p>
           )}
+
+          <p style={{ fontSize: "13px", color: "#777" }}>
+            Accepted formats: JPG, PNG or PDF. Maximum size: 5 MB.
+          </p>
+
+          <button
+            onClick={submitOrder}
+            disabled={loading || submitted}
+            style={{
+              ...buttonStyle,
+              width: "100%",
+              padding: "16px",
+              background: "#218838",
+              opacity: loading || submitted ? 0.6 : 1
+            }}
+          >
+            {loading
+              ? "Uploading proof and submitting order..."
+              : "Submit Order with Proof of Payment"}
+          </button>
         </section>
 
-        {step === "payment" && (
-          <section style={{ ...cardStyle, border: "2px solid #218838" }}>
-            <h2>🏦 FNB EFT Payment</h2>
-
-            <div
-              style={{
-                background: "#eaf5e9",
-                borderRadius: "12px",
-                padding: "16px",
-                textAlign: "center"
-              }}
-            >
-              <p>Your unique order number</p>
-
-              <h1 style={{ color: "#075b20", fontSize: "38px" }}>
-                {orderNumber}
-              </h1>
-
-              <p>
-                Use this 4-digit number as your EFT payment reference.
-              </p>
-            </div>
-
-            <h3>Bank Account Details</h3>
-
-            <p><strong>Bank:</strong> {BANK.name}</p>
-            <p><strong>Account holder:</strong> {BANK.holder}</p>
-            <p><strong>Account number:</strong> {BANK.account}</p>
-            <p><strong>Account type:</strong> {BANK.type}</p>
-            <p><strong>Branch code:</strong> {BANK.branch}</p>
-
-            <h2 style={{ color: "#218838" }}>
-              Amount to Pay: R{total}
-            </h2>
-
-            <p>
-              Please pay the full amount using your order number as the
-              payment reference. Your order will remain subject to payment
-              verification.
-            </p>
-
-            <hr />
-
-            <h3>Upload Proof of Payment</h3>
-
-            <input
-              style={fieldStyle}
-              type="file"
-              accept="image/jpeg,image/png,application/pdf"
-              onChange={e => {
-                setProof(e.target.files?.[0] || null);
-                setError("");
-              }}
-            />
-
-            {proof && (
-              <p style={{ color: "#218838" }}>
-                Selected file: {proof.name}
-              </p>
-            )}
-
-            <p style={{ fontSize: "13px", color: "#777" }}>
-              Accepted formats: JPG, PNG and PDF. Maximum size: 5 MB.
-            </p>
-
-            <button
-              onClick={submitPaymentProof}
-              disabled={loading || !proof}
-              style={{
-                ...buttonStyle,
-                width: "100%",
-                padding: "16px",
-                background: "#218838",
-                opacity: loading || !proof ? 0.6 : 1
-              }}
-            >
-              {loading
-                ? "Uploading payment proof..."
-                : "Submit Order & Send WhatsApp Notification"}
-            </button>
-          </section>
-        )}
-
-        {step === "complete" && (
+        {submitted && (
           <section style={cardStyle}>
             <h2 style={{ color: "#218838" }}>
-              Order Submitted Successfully!
+              Order Submitted!
             </h2>
             <p>Your order number is: <strong>{orderNumber}</strong></p>
-            <p>
-              Your payment proof has been uploaded.
-              Payment verification is pending.
-            </p>
+            <p>Your payment proof has been uploaded and is awaiting verification.</p>
           </section>
         )}
 
@@ -794,12 +671,10 @@ export default function Home() {
             color: "#75451f"
           }}
         >
-          <p>
-            Thank you for choosing Annai Foods ❤️
-          </p>
+          <p>Thank you for choosing Annai Foods ❤️</p>
           <p>Fresh Homemade Idiyappam · Made with Love</p>
         </footer>
       </div>
     </main>
   );
-}
+    }
