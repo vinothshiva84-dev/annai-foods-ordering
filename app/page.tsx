@@ -209,7 +209,7 @@ export default function Home() {
     ].join("\n");
 
     window.open(
-      "https://wa.me/27607104011?text=" + encodeURIComponent(message),
+      "https://wa.me/27651188768?text=" + encodeURIComponent(message),
       "_blank"
     );
   }
@@ -501,7 +501,7 @@ export default function Home() {
 
         <footer style={{ textAlign: "center", padding: "20px" }}>
           <strong>Thank you for choosing Annai Foods! ❤️</strong>
-          <p>WhatsApp: 0607104011</p>
+          <p>WhatsApp: 0651188768</p>
         </footer>
       </div>
     </main>
