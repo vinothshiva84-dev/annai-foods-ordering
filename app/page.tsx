@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -41,7 +40,7 @@ const COLLECTION_ADDRESS =
 const STORAGE_BUCKET = "payment-proofs";
 
 // Annai Foods WhatsApp notification number
-const WHATSAPP_NUMBER = "27607104011";
+const WHATSAPP_NUMBER = "27651188768";
 
 // Enter your verified FNB details before publishing.
 const BANK = {
@@ -52,15 +51,10 @@ const BANK = {
   branch: "REPLACE_WITH_YOUR_BRANCH_CODE"
 };
 
-// Use only the current Supabase project URL and publishable key.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    "Missing Supabase configuration. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel."
-  );
-}
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -294,7 +288,7 @@ export default function Home() {
     }
 
     if (!proof) {
-      setError("Please upload your EFT proof of payment.");
+      setError("Please upload your proof of payment or payment screenshot.");
       return;
     }
 
@@ -378,15 +372,13 @@ export default function Home() {
         `Total Idiyappam plates: ${idiyappamPlates}`,
         `GRAND TOTAL: R${total}`,
         "",
-        "PAYMENT STATUS: Proof uploaded - awaiting verification",
+        "PAYMENT STATUS: Proof of payment uploaded - awaiting verification",
         `PAYMENT PROOF: ${proofLink}`,
         "",
         "HOME COLLECTION ADDRESS:",
         COLLECTION_ADDRESS,
         "",
-        "Please verify the EFT payment before confirming the order.",
-        "",
-        "Thank you for choosing Annai Foods!"
+        "Please check the uploaded proof of payment and verify the payment before confirming the order."
       ].join("\n");
 
       setStep("complete");
@@ -733,81 +725,4 @@ export default function Home() {
             <input
               style={fieldStyle}
               type="file"
-              accept="image/jpeg,image/png,application/pdf"
-              onChange={e => {
-                setProof(e.target.files?.[0] || null);
-                setError("");
-              }}
-            />
-
-            {proof && (
-              <p style={{ color: "#218838" }}>
-                Selected file: {proof.name}
-              </p>
-            )}
-
-            <p style={{ fontSize: "13px", color: "#777" }}>
-              Accepted formats: JPG, PNG and PDF. Maximum size: 5 MB.
-            </p>
-
-            <button
-              onClick={submitPaymentProof}
-              disabled={loading || !proof}
-              style={{
-                ...buttonStyle,
-                width: "100%",
-                padding: "16px",
-                background: "#218838",
-                opacity: loading || !proof ? 0.6 : 1
-              }}
-            >
-              {loading
-                ? "Uploading payment proof..."
-                : "Submit Order & Send WhatsApp Notification"}
-            </button>
-          </section>
-        )}
-
-        {step === "complete" && (
-          <section style={cardStyle}>
-            <h2 style={{ color: "#218838" }}>
-              Order Submitted Successfully!
-            </h2>
-            <p>Your order number is: <strong>{orderNumber}</strong></p>
-            <p>
-              Your payment proof has been uploaded.
-              Payment verification is pending.
-            </p>
-          </section>
-        )}
-
-        {error && (
-          <div
-            style={{
-              background: "#ffe5e5",
-              color: "#b00020",
-              padding: "12px",
-              borderRadius: "8px",
-              marginBottom: "15px"
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <footer
-          style={{
-            textAlign: "center",
-            padding: "20px",
-            color: "#75451f"
-          }}
-        >
-          <p>
-            Thank you for choosing Annai Foods ❤️
-          </p>
-          <p>Fresh Homemade Idiyappam · Made with Love</p>
-        </footer>
-      </div>
-    </main>
-  );
-}
+              accept="image/jp
