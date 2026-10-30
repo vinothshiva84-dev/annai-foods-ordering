@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -9,6 +10,8 @@ type MenuItem = {
   type?: "idiyappam" | "combo";
   description?: string;
 };
+
+type CollectionMethod = "Home collection" | "Uber pickup";
 
 const MENU: MenuItem[] = [
   { name: "Rice Idiyappam", price: 30, type: "idiyappam" },
@@ -39,8 +42,9 @@ const COLLECTION_ADDRESS =
 
 const WHATSAPP_NUMBER = "27607104011";
 
-// Use ONLY the Supabase publishable key.
-// Never use a secret key or service_role key in browser code.
+// Supabase publishable key only.
+// Never use a secret API key or service_role key in browser code.
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 const supabasePublishableKey =
@@ -56,6 +60,9 @@ export default function Home() {
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState("");
+  const [collectionMethod, setCollectionMethod] =
+    useState<CollectionMethod>("Home collection");
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState("");
@@ -165,7 +172,6 @@ export default function Home() {
       setError(
         "The Annai Foods database connection is not configured. Please contact Annai Foods."
       );
-
       return false;
     }
 
@@ -199,6 +205,14 @@ export default function Home() {
       return false;
     }
 
+    if (
+      collectionMethod !== "Home collection" &&
+      collectionMethod !== "Uber pickup"
+    ) {
+      setError("Please select a collection method.");
+      return false;
+    }
+
     return true;
   }
 
@@ -213,8 +227,8 @@ export default function Home() {
       let savedOrderNumber = "";
       let lastError: any = null;
 
-      // Generate a random four-digit order reference.
-      // A unique database constraint prevents duplicate references.
+      // Generate a random four-digit order number.
+      // The database must have a UNIQUE constraint on order_number.
 
       for (let attempt = 0; attempt < 30; attempt++) {
         const candidate = generateOrderNumber();
@@ -229,7 +243,7 @@ export default function Home() {
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
             collection_date: collectionDate,
-            collection_method: "Home collection",
+            collection_method: collectionMethod,
           });
 
         if (!insertError) {
@@ -260,7 +274,7 @@ export default function Home() {
         `Customer: ${customer.trim()}`,
         `WhatsApp: ${phone.trim()}`,
         `Collection date: ${formatDate(collectionDate)}`,
-        "Collection method: Home collection only",
+        `Collection method: ${collectionMethod}`,
         "",
         "ORDER DETAILS:",
         ...orderLines().map(
@@ -272,13 +286,17 @@ export default function Home() {
         `Total Idiyappam plates: ${idiyappamPlates}`,
         `GRAND TOTAL: R${total}`,
         "",
-        "Collection address:",
+        "COLLECTION / UBER PICKUP ADDRESS:",
         COLLECTION_ADDRESS,
+        "",
+        collectionMethod === "Uber pickup"
+          ? "Customer has selected Uber pickup. Please arrange collection with the customer."
+          : "Customer has selected home collection.",
         "",
         "Thank you for choosing Annai Foods!",
       ].join("\n");
 
-      // Open WhatsApp after Supabase successfully saves the order.
+      // Open WhatsApp after successfully saving the order.
 
       window.location.href =
         `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
@@ -512,7 +530,7 @@ export default function Home() {
         </section>
 
         <section style={cardStyle}>
-          <h2>📍 Home Collection Address</h2>
+          <h2>📍 Collection / Uber Pickup Address</h2>
 
           <p>{COLLECTION_ADDRESS}</p>
 
@@ -575,17 +593,117 @@ export default function Home() {
               : "Select today before 12 PM or any future date."}
           </p>
 
-          <p>
-            <strong>Collection:</strong> Home collection only
-          </p>
+          <hr style={{ border: "none", borderTop: "1px solid #eee" }} />
+
+          <h2>🚗 Choose Your Collection Method</h2>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "15px",
+              marginBottom: "10px",
+              border: collectionMethod === "Home collection"
+                ? "2px solid #218838"
+                : "1px solid #ddd",
+              borderRadius: "10px",
+              background: collectionMethod === "Home collection"
+                ? "#f0fff3"
+                : "#fff",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="radio"
+              name="collectionMethod"
+              value="Home collection"
+              checked={collectionMethod === "Home collection"}
+              onChange={() => {
+                setCollectionMethod("Home collection");
+                setError("");
+              }}
+            />
+
+            <span>
+              <strong>🏠 Home Collection</strong>
+              <br />
+              <span style={{ fontSize: "13px", color: "#666" }}>
+                Collect your order from our home address.
+              </span>
+            </span>
+          </label>
+
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "15px",
+              marginBottom: "15px",
+              border: collectionMethod === "Uber pickup"
+                ? "2px solid #218838"
+                : "1px solid #ddd",
+              borderRadius: "10px",
+              background: collectionMethod === "Uber pickup"
+                ? "#f0fff3"
+                : "#fff",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="radio"
+              name="collectionMethod"
+              value="Uber pickup"
+              checked={collectionMethod === "Uber pickup"}
+              onChange={() => {
+                setCollectionMethod("Uber pickup");
+                setError("");
+              }}
+            />
+
+            <span>
+              <strong>🚗 Uber Pickup</strong>
+              <br />
+              <span style={{ fontSize: "13px", color: "#666" }}>
+                Arrange an Uber to collect your order from our address.
+              </span>
+            </span>
+          </label>
+
+          {collectionMethod === "Uber pickup" && (
+            <div
+              style={{
+                background: "#fff8ed",
+                padding: "12px",
+                borderRadius: "8px",
+                marginBottom: "15px",
+                fontSize: "14px",
+              }}
+            >
+              <strong>Uber Pickup Instructions</strong>
+              <p>
+                Your Uber driver must collect the order from:
+              </p>
+              <p>{COLLECTION_ADDRESS}</p>
+              <p>
+                Annai Foods will receive your Uber pickup selection
+                with your order details through WhatsApp.
+              </p>
+              <p>
+                Uber arrangements and charges are the customer's
+                responsibility.
+              </p>
+            </div>
+          )}
 
           <p>
             <strong>Order cutoff:</strong> 12:00 PM Johannesburg time
           </p>
 
           <p style={{ fontSize: "14px" }}>
-            Your order will be saved and the order details will open in
-            WhatsApp for Annai Foods.
+            Your order will be saved and the complete order details
+            will open in WhatsApp for Annai Foods.
           </p>
 
           <button
@@ -604,6 +722,21 @@ export default function Home() {
               ? "Submitting your order..."
               : "Submit Order & Send WhatsApp Notification"}
           </button>
+
+          {error && (
+            <div
+              role="alert"
+              style={{
+                background: "#ffe5e5",
+                color: "#b00020",
+                padding: "12px",
+                borderRadius: "8px",
+                marginTop: "15px",
+              }}
+            >
+              {error}
+            </div>
+          )}
         </section>
 
         {submittedOrderNumber && (
@@ -624,21 +757,6 @@ export default function Home() {
           </section>
         )}
 
-        {error && (
-          <div
-            role="alert"
-            style={{
-              background: "#ffe5e5",
-              color: "#b00020",
-              padding: "12px",
-              borderRadius: "8px",
-              marginBottom: "15px",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
         <footer
           style={{
             textAlign: "center",
@@ -647,11 +765,10 @@ export default function Home() {
           }}
         >
           <p>Thank you for choosing Annai Foods ❤️</p>
-
           <p>Fresh Homemade Idiyappam · Made with Love</p>
         </footer>
 
       </div>
     </main>
   );
-              }
+}
