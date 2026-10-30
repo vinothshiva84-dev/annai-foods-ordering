@@ -57,7 +57,6 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
-
   const [submitted, setSubmitted] = useState(false);
 
   const selectedItems = MENU.filter(
@@ -226,7 +225,6 @@ export default function Home() {
     let uploadedPath = "";
 
     try {
-      // Upload POP or payment screenshot first.
       const extension =
         proof!.name.split(".").pop()?.toLowerCase() || "jpg";
 
@@ -242,7 +240,6 @@ export default function Home() {
 
       if (uploadError) throw uploadError;
 
-      // Generate a unique-looking 4-digit order number.
       let savedOrder: any = null;
       let lastError: any = null;
 
@@ -283,7 +280,6 @@ export default function Home() {
 
       setOrderNumber(savedOrder.order_number);
 
-      // Create a link to the uploaded payment proof.
       const { data: signedData, error: signedError } =
         await supabase.storage
           .from(STORAGE_BUCKET)
@@ -678,3 +674,4 @@ export default function Home() {
     </main>
   );
     }
+    
