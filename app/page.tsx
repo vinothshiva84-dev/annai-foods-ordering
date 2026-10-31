@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState } from "react";
@@ -41,14 +40,14 @@ const MENU: MenuItem[] = [
 
 const PARTY_MENU: MenuItem[] = [
   {
-    name: "Chennai Style Lamb Dum Biryani",
-    price: 160,
+    name: "Chennai Style Lamb Dum Biryani with Egg",
+    price: 140,
     type: "party",
     description: "Party orders only · Price per plate",
   },
   {
-    name: "Chennai Style Chicken Dum Biryani",
-    price: 140,
+    name: "Chennai Style Chicken Dum Biryani with Egg",
+    price: 110,
     type: "party",
     description: "Party orders only · Price per plate",
   },
