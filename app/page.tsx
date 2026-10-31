@@ -40,17 +40,10 @@ const MENU: MenuItem[] = [
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
-// Annai Foods official WhatsApp notification number.
 const WHATSAPP_NUMBER = "+27651188768";
-
-// wa.me requires the number without the plus sign.
 const WHATSAPP_LINK_NUMBER = WHATSAPP_NUMBER.replace(/^\+/, "");
 
-// Supabase publishable key only.
-// Never use a secret API key or service_role key in browser code.
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -65,7 +58,6 @@ function isValidCalendarDate(value: string) {
   }
 
   const [year, month, day] = value.split("-").map(Number);
-
   const date = new Date(Date.UTC(year, month - 1, day));
 
   return (
@@ -106,7 +98,6 @@ export default function Home() {
     const quantity = quantities[item.name] || 0;
 
     if (item.type === "idiyappam") return sum + quantity;
-
     if (item.type === "combo") return sum + quantity * 2;
 
     return sum;
@@ -121,7 +112,7 @@ export default function Home() {
     setError("");
   }
 
-  // Always use Johannesburg local date and time.
+  // Johannesburg local date and time.
   function johannesburgParts() {
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Africa/Johannesburg",
@@ -146,7 +137,7 @@ export default function Home() {
   }
 
   // Before 12 PM: today is allowed.
-  // From 12 PM onwards: tomorrow is the earliest date.
+  // From 12 PM: tomorrow is the earliest date.
   function minimumCollectionDate() {
     const now = johannesburgParts();
 
@@ -180,7 +171,6 @@ export default function Home() {
 
   function generateOrderNumber() {
     const random = new Uint32Array(1);
-
     crypto.getRandomValues(random);
 
     return String(1000 + (random[0] % 9000));
@@ -208,8 +198,9 @@ export default function Home() {
       return false;
     }
 
-    if (!phone.trim()) {
-      setError("Please enter your WhatsApp number.");
+    // Customer number must contain exactly 10 digits.
+    if (!/^\d{10}$/.test(phone)) {
+      setError("Please enter a valid 10-digit WhatsApp number.");
       return false;
     }
 
@@ -262,8 +253,6 @@ export default function Home() {
     setLoading(true);
 
     try {
-      // Check the date again immediately before saving.
-
       const latestMinimumDate = minimumCollectionDate();
 
       if (
@@ -283,9 +272,8 @@ export default function Home() {
       let savedOrderNumber = "";
       let lastError: any = null;
 
-      // Generate a random four-digit order number.
+      // Random four-digit order number.
       // orders.order_number must have a UNIQUE database constraint.
-
       for (let attempt = 0; attempt < 30; attempt++) {
         const candidate = generateOrderNumber();
 
@@ -294,7 +282,7 @@ export default function Home() {
           .insert({
             order_number: candidate,
             customer_name: customer.trim(),
-            customer_phone: phone.trim(),
+            customer_phone: phone,
             items: orderLines(),
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
@@ -328,7 +316,7 @@ export default function Home() {
         "",
         `Order number: ${savedOrderNumber}`,
         `Customer: ${customer.trim()}`,
-        `WhatsApp: ${phone.trim()}`,
+        `WhatsApp: ${phone}`,
         `Collection date: ${formatDate(collectionDate)}`,
         `Collection method: ${collectionMethod}`,
         "",
@@ -351,8 +339,6 @@ export default function Home() {
         "",
         "Thank you for choosing Annai Foods!",
       ].join("\n");
-
-      // Open WhatsApp using the corrected notification number.
 
       window.location.href =
         `https://wa.me/${WHATSAPP_LINK_NUMBER}?text=${encodeURIComponent(message)}`;
@@ -409,7 +395,6 @@ export default function Home() {
       }}
     >
       <div style={{ maxWidth: "650px", margin: "auto" }}>
-
         <header
           style={{
             textAlign: "center",
@@ -624,10 +609,24 @@ export default function Home() {
             id="phone"
             style={fieldStyle}
             type="tel"
-            placeholder="Enter your phone number"
+            inputMode="numeric"
+            pattern="[0-9]{10}"
+            maxLength={10}
+            placeholder="Enter 10-digit phone number"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              const digits = e.target.value
+                .replace(/\D/g, "")
+                .slice(0, 10);
+
+              setPhone(digits);
+              setError("");
+            }}
           />
+
+          <p style={{ fontSize: "12px", color: "#777", marginTop: "-8px" }}>
+            Enter exactly 10 digits. No spaces or country code.
+          </p>
 
           <label htmlFor="collectionDate">Collection Date</label>
 
@@ -853,7 +852,6 @@ export default function Home() {
           <p>Thank you for choosing Annai Foods ❤️</p>
           <p>Fresh Homemade Idiyappam · Made with Love</p>
         </footer>
-
       </div>
     </main>
   );
