@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 type MenuItem = {
   name: string;
   price: number;
-  type?: "idiyappam" | "combo";
+  type?: "idiyappam" | "combo" | "party";
   description?: string;
 };
 
@@ -23,6 +23,8 @@ const MENU: MenuItem[] = [
   { name: "Veg White Kurma", price: 80 },
   { name: "Egg Semiya", price: 80 },
   { name: "Coconut Milk", price: 50 },
+  { name: "Egg Idiyappam Kothu", price: 80 },
+  { name: "Chicken Idiyappam Kothu", price: 100 },
   {
     name: "Combo 1",
     price: 140,
@@ -36,6 +38,23 @@ const MENU: MenuItem[] = [
     type: "combo",
   },
 ];
+
+const PARTY_MENU: MenuItem[] = [
+  {
+    name: "Chennai Style Lamb Dum Biryani",
+    price: 160,
+    type: "party",
+    description: "Party orders only · Price per plate",
+  },
+  {
+    name: "Chennai Style Chicken Dum Biryani",
+    price: 140,
+    type: "party",
+    description: "Party orders only · Price per plate",
+  },
+];
+
+const ALL_MENU = [...MENU, ...PARTY_MENU];
 
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
@@ -80,8 +99,16 @@ export default function Home() {
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState("");
 
   const selectedItems = useMemo(
-    () => MENU.filter((item) => (quantities[item.name] || 0) > 0),
+    () => ALL_MENU.filter((item) => (quantities[item.name] || 0) > 0),
     [quantities]
+  );
+
+  const selectedRegularItems = selectedItems.filter(
+    (item) => item.type !== "party"
+  );
+
+  const selectedPartyItems = selectedItems.filter(
+    (item) => item.type === "party"
   );
 
   const total = selectedItems.reduce(
@@ -102,6 +129,11 @@ export default function Home() {
 
     return sum;
   }, 0);
+
+  const partyPlateCount = selectedPartyItems.reduce(
+    (sum, item) => sum + (quantities[item.name] || 0),
+    0
+  );
 
   function changeQuantity(name: string, amount: number) {
     setQuantities((previous) => ({
@@ -198,7 +230,6 @@ export default function Home() {
       return false;
     }
 
-    // Customer number must contain exactly 10 digits.
     if (!/^\d{10}$/.test(phone)) {
       setError("Please enter a valid 10-digit WhatsApp number.");
       return false;
@@ -209,8 +240,26 @@ export default function Home() {
       return false;
     }
 
-    if (idiyappamPlates < 5) {
-      setError("Minimum order is 5 plates of Idiyappam.");
+    // Regular menu orders require at least 5 Idiyappam plates.
+    // Party-only orders do not require Idiyappam.
+    if (
+      selectedRegularItems.length > 0 &&
+      idiyappamPlates < 5
+    ) {
+      setError(
+        "Regular menu orders require a minimum of 5 plates of Idiyappam."
+      );
+      return false;
+    }
+
+    // Party biryani orders start from 5 people.
+    if (
+      selectedPartyItems.length > 0 &&
+      partyPlateCount < 5
+    ) {
+      setError(
+        "Party orders start from 5 people. Please select at least 5 biryani plates."
+      );
       return false;
     }
 
@@ -320,12 +369,27 @@ export default function Home() {
         `Collection date: ${formatDate(collectionDate)}`,
         `Collection method: ${collectionMethod}`,
         "",
-        "ORDER DETAILS:",
-        ...orderLines().map(
-          (item) =>
-            `${item.name} x ${item.quantity} = R${item.subtotal}`
-        ),
+        "REGULAR MENU:",
+        ...(selectedRegularItems.length > 0
+          ? selectedRegularItems.map((item) => {
+              const quantity = quantities[item.name];
+              const subtotal = item.price * quantity;
+
+              return `${item.name} x ${quantity} = R${subtotal}`;
+            })
+          : ["No regular menu items selected"]),
         "",
+        "PARTY ORDERS ONLY:",
+        ...(selectedPartyItems.length > 0
+          ? selectedPartyItems.map((item) => {
+              const quantity = quantities[item.name];
+              const subtotal = item.price * quantity;
+
+              return `${item.name} x ${quantity} = R${subtotal}`;
+            })
+          : ["No party biryani selected"]),
+        "",
+        `Party biryani plate count: ${partyPlateCount}`,
         `Total selected items: ${itemCount}`,
         `Total Idiyappam plates: ${idiyappamPlates}`,
         `GRAND TOTAL: R${total}`,
@@ -384,6 +448,63 @@ export default function Home() {
     boxShadow: "0 2px 8px #0000000c",
   };
 
+  function renderMenuItem(item: MenuItem) {
+    return (
+      <div
+        key={item.name}
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "8px",
+          padding: "13px 0",
+          borderBottom: "1px solid #eee",
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          <strong>{item.name}</strong>
+
+          {item.description && (
+            <div style={{ fontSize: "12px", color: "#777" }}>
+              {item.description}
+            </div>
+          )}
+
+          <div style={{ color: "#75451f", fontWeight: 700 }}>
+            R{item.price}
+            {item.type === "party" ? " per plate" : ""}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "9px",
+          }}
+        >
+          <button
+            type="button"
+            style={buttonStyle}
+            onClick={() => changeQuantity(item.name, -1)}
+          >
+            −
+          </button>
+
+          <strong>{quantities[item.name] || 0}</strong>
+
+          <button
+            type="button"
+            style={buttonStyle}
+            onClick={() => changeQuantity(item.name, 1)}
+          >
+            +
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main
       style={{
@@ -434,62 +555,31 @@ export default function Home() {
           <h2>Our Food Menu</h2>
 
           <p style={{ color: "#a04b24" }}>
-            Minimum 5 plates of Idiyappam per order.
+            Minimum 5 plates of Idiyappam per regular menu order.
           </p>
 
-          {MENU.map((item) => (
-            <div
-              key={item.name}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: "8px",
-                padding: "13px 0",
-                borderBottom: "1px solid #eee",
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <strong>{item.name}</strong>
+          {MENU.map(renderMenuItem)}
+        </section>
 
-                {item.description && (
-                  <div style={{ fontSize: "12px", color: "#777" }}>
-                    {item.description}
-                  </div>
-                )}
+        <section
+          style={{
+            ...cardStyle,
+            border: "2px solid #d49a32",
+          }}
+        >
+          <h2>🎉 Party Orders Only</h2>
 
-                <div style={{ color: "#75451f", fontWeight: 700 }}>
-                  R{item.price}
-                </div>
-              </div>
+          <p style={{ color: "#a04b24", fontWeight: 700 }}>
+            Party orders start from 5 people.
+          </p>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "9px",
-                }}
-              >
-                <button
-                  type="button"
-                  style={buttonStyle}
-                  onClick={() => changeQuantity(item.name, -1)}
-                >
-                  −
-                </button>
+          <p style={{ fontSize: "14px", color: "#666" }}>
+            Minimum 5 biryani plates per party order. Choose Lamb
+            or Chicken, or a combination of both, with a total of
+            at least 5 plates.
+          </p>
 
-                <strong>{quantities[item.name] || 0}</strong>
-
-                <button
-                  type="button"
-                  style={buttonStyle}
-                  onClick={() => changeQuantity(item.name, 1)}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          ))}
+          {PARTY_MENU.map(renderMenuItem)}
         </section>
 
         <section
@@ -563,6 +653,11 @@ export default function Home() {
 
           <p>
             Total Idiyappam plates: <strong>{idiyappamPlates}</strong>
+          </p>
+
+          <p>
+            Total party biryani plates:{" "}
+            <strong>{partyPlateCount}</strong>
           </p>
 
           <h2 style={{ color: "#218838" }}>
