@@ -40,7 +40,7 @@ const MENU: MenuItem[] = [
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
-const WHATSAPP_NUMBER = "27607104011";
+const WHATSAPP_NUMBER = "27651188768";
 
 // Supabase publishable key only.
 // Never use a secret API key or service_role key in browser code.
