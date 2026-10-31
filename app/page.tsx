@@ -40,7 +40,11 @@ const MENU: MenuItem[] = [
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
-const WHATSAPP_NUMBER = "27651188768";
+// Annai Foods official WhatsApp notification number.
+const WHATSAPP_NUMBER = "+27651188768";
+
+// wa.me requires the number without the plus sign.
+const WHATSAPP_LINK_NUMBER = WHATSAPP_NUMBER.replace(/^\+/, "");
 
 // Supabase publishable key only.
 // Never use a secret API key or service_role key in browser code.
@@ -55,7 +59,6 @@ const supabase =
     ? createClient(supabaseUrl, supabasePublishableKey)
     : null;
 
-// Check that a date is a real calendar date.
 function isValidCalendarDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return false;
@@ -118,7 +121,7 @@ export default function Home() {
     setError("");
   }
 
-  // Always calculate the date and time in Johannesburg.
+  // Always use Johannesburg local date and time.
   function johannesburgParts() {
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Africa/Johannesburg",
@@ -143,7 +146,7 @@ export default function Home() {
   }
 
   // Before 12 PM: today is allowed.
-  // From 12 PM onwards: collection starts tomorrow.
+  // From 12 PM onwards: tomorrow is the earliest date.
   function minimumCollectionDate() {
     const now = johannesburgParts();
 
@@ -259,8 +262,7 @@ export default function Home() {
     setLoading(true);
 
     try {
-      // SECOND DATE CHECK immediately before saving.
-      // This prevents an outdated date from being submitted.
+      // Check the date again immediately before saving.
 
       const latestMinimumDate = minimumCollectionDate();
 
@@ -282,7 +284,7 @@ export default function Home() {
       let lastError: any = null;
 
       // Generate a random four-digit order number.
-      // The database must have a UNIQUE constraint on order_number.
+      // orders.order_number must have a UNIQUE database constraint.
 
       for (let attempt = 0; attempt < 30; attempt++) {
         const candidate = generateOrderNumber();
@@ -350,10 +352,10 @@ export default function Home() {
         "Thank you for choosing Annai Foods!",
       ].join("\n");
 
-      // Open WhatsApp after successfully saving the order.
+      // Open WhatsApp using the corrected notification number.
 
       window.location.href =
-        `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+        `https://wa.me/${WHATSAPP_LINK_NUMBER}?text=${encodeURIComponent(message)}`;
 
     } catch (err: any) {
       console.error("Annai Foods order submission error:", err);
