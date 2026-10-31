@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState } from "react";
@@ -58,10 +59,14 @@ const ALL_MENU = [...MENU, ...PARTY_MENU];
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
-const WHATSAPP_NUMBER = "+27651188768";
-const WHATSAPP_LINK_NUMBER = WHATSAPP_NUMBER.replace(/^\+/, "");
+// Both Annai Foods WhatsApp notification recipients
+const WHATSAPP_NUMBERS = [
+  { label: "Annai Foods - Number 1", number: "27651188768" },
+  { label: "Annai Foods - Number 2", number: "27607104011" },
+];
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -71,9 +76,7 @@ const supabase =
     : null;
 
 function isValidCalendarDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
 
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
@@ -86,16 +89,20 @@ function isValidCalendarDate(value: string) {
 }
 
 export default function Home() {
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [quantities, setQuantities] =
+    useState<Record<string, number>>({});
+
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState("");
+
   const [collectionMethod, setCollectionMethod] =
     useState<CollectionMethod>("Home collection");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState("");
+  const [whatsappMessage, setWhatsappMessage] = useState("");
 
   const selectedItems = useMemo(
     () => ALL_MENU.filter((item) => (quantities[item.name] || 0) > 0),
@@ -111,7 +118,8 @@ export default function Home() {
   );
 
   const total = selectedItems.reduce(
-    (sum, item) => sum + item.price * (quantities[item.name] || 0),
+    (sum, item) =>
+      sum + item.price * (quantities[item.name] || 0),
     0
   );
 
@@ -143,7 +151,6 @@ export default function Home() {
     setError("");
   }
 
-  // Johannesburg local date and time.
   function johannesburgParts() {
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Africa/Johannesburg",
@@ -167,8 +174,6 @@ export default function Home() {
     };
   }
 
-  // Before 12 PM: today is allowed.
-  // From 12 PM: tomorrow is the earliest date.
   function minimumCollectionDate() {
     const now = johannesburgParts();
 
@@ -207,19 +212,10 @@ export default function Home() {
     return String(1000 + (random[0] % 9000));
   }
 
-  function orderLines() {
-    return selectedItems.map((item) => ({
-      name: item.name,
-      quantity: quantities[item.name],
-      price: item.price,
-      subtotal: item.price * quantities[item.name],
-    }));
-  }
-
   function validate() {
     if (!supabase) {
       setError(
-        "The Annai Foods database connection is not configured. Please contact Annai Foods."
+        "Database connection is not configured. Please contact Annai Foods."
       );
       return false;
     }
@@ -239,8 +235,6 @@ export default function Home() {
       return false;
     }
 
-    // Regular menu orders require at least 5 Idiyappam plates.
-    // Party-only orders do not require Idiyappam.
     if (
       selectedRegularItems.length > 0 &&
       idiyappamPlates < 5
@@ -251,13 +245,12 @@ export default function Home() {
       return false;
     }
 
-    // Party biryani orders start from 5 people.
     if (
       selectedPartyItems.length > 0 &&
       partyPlateCount < 5
     ) {
       setError(
-        "Party orders start from 5 people. Please select at least 5 biryani plates."
+        "Party orders require a minimum of 5 biryani plates."
       );
       return false;
     }
@@ -267,18 +260,16 @@ export default function Home() {
       return false;
     }
 
-    const todayMinimum = minimumCollectionDate();
+    const earliestDate = minimumCollectionDate();
 
     if (
       !isValidCalendarDate(collectionDate) ||
-      collectionDate < todayMinimum
+      collectionDate < earliestDate
     ) {
       setCollectionDate("");
-
       setError(
-        `Invalid collection date. Please select ${formatDate(todayMinimum)} or a later date.`
+        `Please select ${formatDate(earliestDate)} or a later date.`
       );
-
       return false;
     }
 
@@ -291,6 +282,48 @@ export default function Home() {
     }
 
     return true;
+  }
+
+  function createWhatsAppMessage(orderNumber: string) {
+    return [
+      "ANNAI FOODS - NEW ORDER",
+      "",
+      `Order number: ${orderNumber}`,
+      `Customer: ${customer.trim()}`,
+      `WhatsApp: ${phone}`,
+      `Collection date: ${formatDate(collectionDate)}`,
+      `Collection method: ${collectionMethod}`,
+      "",
+      "REGULAR MENU:",
+      ...(selectedRegularItems.length > 0
+        ? selectedRegularItems.map((item) => {
+            const quantity = quantities[item.name];
+            return `${item.name} x ${quantity} = R${item.price * quantity}`;
+          })
+        : ["No regular menu items selected"]),
+      "",
+      "PARTY ORDERS:",
+      ...(selectedPartyItems.length > 0
+        ? selectedPartyItems.map((item) => {
+            const quantity = quantities[item.name];
+            return `${item.name} x ${quantity} = R${item.price * quantity}`;
+          })
+        : ["No party biryani selected"]),
+      "",
+      `Party biryani plates: ${partyPlateCount}`,
+      `Total selected items: ${itemCount}`,
+      `Total Idiyappam plates: ${idiyappamPlates}`,
+      `GRAND TOTAL: R${total}`,
+      "",
+      "COLLECTION / UBER PICKUP ADDRESS:",
+      COLLECTION_ADDRESS,
+      "",
+      collectionMethod === "Uber pickup"
+        ? "Customer selected Uber pickup. Please arrange collection with the customer."
+        : "Customer selected home collection.",
+      "",
+      "Thank you for choosing Annai Foods!",
+    ].join("\n");
   }
 
   async function submitOrder() {
@@ -308,20 +341,17 @@ export default function Home() {
         collectionDate < latestMinimumDate
       ) {
         setCollectionDate("");
-
         setError(
           "Your selected collection date is no longer valid. Please select a new date."
         );
-
-        setLoading(false);
         return;
       }
 
       let savedOrderNumber = "";
       let lastError: any = null;
 
-      // Random four-digit order number.
-      // orders.order_number must have a UNIQUE database constraint.
+      // Generate a random four-digit order number.
+      // Database UNIQUE constraint is required.
       for (let attempt = 0; attempt < 30; attempt++) {
         const candidate = generateOrderNumber();
 
@@ -331,7 +361,12 @@ export default function Home() {
             order_number: candidate,
             customer_name: customer.trim(),
             customer_phone: phone,
-            items: orderLines(),
+            items: selectedItems.map((item) => ({
+              name: item.name,
+              quantity: quantities[item.name],
+              price: item.price,
+              subtotal: item.price * quantities[item.name],
+            })),
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
             collection_date: collectionDate,
@@ -357,54 +392,14 @@ export default function Home() {
         );
       }
 
+      // Save order notification message for BOTH recipients.
+      const message = createWhatsAppMessage(savedOrderNumber);
+
       setSubmittedOrderNumber(savedOrderNumber);
+      setWhatsappMessage(message);
 
-      const message = [
-        "ANNAI FOODS - NEW ORDER",
-        "",
-        `Order number: ${savedOrderNumber}`,
-        `Customer: ${customer.trim()}`,
-        `WhatsApp: ${phone}`,
-        `Collection date: ${formatDate(collectionDate)}`,
-        `Collection method: ${collectionMethod}`,
-        "",
-        "REGULAR MENU:",
-        ...(selectedRegularItems.length > 0
-          ? selectedRegularItems.map((item) => {
-              const quantity = quantities[item.name];
-              const subtotal = item.price * quantity;
-
-              return `${item.name} x ${quantity} = R${subtotal}`;
-            })
-          : ["No regular menu items selected"]),
-        "",
-        "PARTY ORDERS ONLY:",
-        ...(selectedPartyItems.length > 0
-          ? selectedPartyItems.map((item) => {
-              const quantity = quantities[item.name];
-              const subtotal = item.price * quantity;
-
-              return `${item.name} x ${quantity} = R${subtotal}`;
-            })
-          : ["No party biryani selected"]),
-        "",
-        `Party biryani plate count: ${partyPlateCount}`,
-        `Total selected items: ${itemCount}`,
-        `Total Idiyappam plates: ${idiyappamPlates}`,
-        `GRAND TOTAL: R${total}`,
-        "",
-        "COLLECTION / UBER PICKUP ADDRESS:",
-        COLLECTION_ADDRESS,
-        "",
-        collectionMethod === "Uber pickup"
-          ? "Customer has selected Uber pickup. Please arrange collection with the customer."
-          : "Customer has selected home collection.",
-        "",
-        "Thank you for choosing Annai Foods!",
-      ].join("\n");
-
-      window.location.href =
-        `https://wa.me/${WHATSAPP_LINK_NUMBER}?text=${encodeURIComponent(message)}`;
+      // Do not redirect to just one WhatsApp number.
+      // Display two separate notification links instead.
 
     } catch (err: any) {
       console.error("Annai Foods order submission error:", err);
@@ -718,7 +713,13 @@ export default function Home() {
             }}
           />
 
-          <p style={{ fontSize: "12px", color: "#777", marginTop: "-8px" }}>
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#777",
+              marginTop: "-8px",
+            }}
+          >
             Enter exactly 10 digits. No spaces or country code.
           </p>
 
@@ -764,7 +765,12 @@ export default function Home() {
               : "Select today before 12 PM or any future date."}
           </p>
 
-          <hr style={{ border: "none", borderTop: "1px solid #eee" }} />
+          <hr
+            style={{
+              border: "none",
+              borderTop: "1px solid #eee",
+            }}
+          />
 
           <h2>🚗 Choose Your Collection Method</h2>
 
@@ -881,25 +887,29 @@ export default function Home() {
           </p>
 
           <p style={{ fontSize: "14px" }}>
-            Your order will be saved and the complete order details
-            will open in WhatsApp for Annai Foods.
+            Your order will be saved in the Annai Foods database.
+            After submission, send the order notification to both
+            Annai Foods WhatsApp numbers.
           </p>
 
           <button
             type="button"
             onClick={submitOrder}
-            disabled={loading}
+            disabled={loading || !!submittedOrderNumber}
             style={{
               ...buttonStyle,
               width: "100%",
               padding: "16px",
               background: "#218838",
-              opacity: loading ? 0.65 : 1,
+              opacity:
+                loading || submittedOrderNumber ? 0.65 : 1,
             }}
           >
             {loading
               ? "Submitting your order..."
-              : "Submit Order & Send WhatsApp Notification"}
+              : submittedOrderNumber
+                ? "Order Saved Successfully"
+                : "Submit Order & Prepare WhatsApp Notifications"}
           </button>
 
           {error && (
@@ -926,12 +936,71 @@ export default function Home() {
             }}
           >
             <h2 style={{ color: "#218838" }}>
-              Order Submitted
+              Order Saved Successfully
             </h2>
 
             <p>
-              Your order number is:{" "}
+              Your order number:{" "}
               <strong>{submittedOrderNumber}</strong>
+            </p>
+
+            <p>
+              Grand total: <strong>R{total}</strong>
+            </p>
+
+            <hr
+              style={{
+                border: "none",
+                borderTop: "1px solid #eee",
+              }}
+            />
+
+            <h3>Send Order Notification to Annai Foods</h3>
+
+            <p style={{ fontSize: "14px" }}>
+              Please send the same order details to both WhatsApp
+              numbers below.
+            </p>
+
+            {WHATSAPP_NUMBERS.map((recipient) => (
+              <a
+                key={recipient.number}
+                href={`https://wa.me/${recipient.number}?text=${encodeURIComponent(
+                  whatsappMessage
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  textDecoration: "none",
+                  background: "#218838",
+                  color: "#fff",
+                  padding: "15px",
+                  borderRadius: "10px",
+                  fontWeight: 700,
+                  marginTop: "12px",
+                }}
+              >
+                <span>
+                  Send to {recipient.label}
+                </span>
+                <br />
+                {recipient.number === "27651188768"
+                  ? "0651188768"
+                  : "0607104011"}
+              </a>
+            ))}
+
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#777",
+                marginTop: "15px",
+              }}
+            >
+              WhatsApp will open with the order message prepared.
+              Press Send in WhatsApp for each number.
             </p>
           </section>
         )}
