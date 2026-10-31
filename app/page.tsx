@@ -55,6 +55,23 @@ const supabase =
     ? createClient(supabaseUrl, supabasePublishableKey)
     : null;
 
+// Check that a date is a real calendar date.
+function isValidCalendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
 export default function Home() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
@@ -101,8 +118,9 @@ export default function Home() {
     setError("");
   }
 
+  // Always calculate the date and time in Johannesburg.
   function johannesburgParts() {
-    const parts = new Intl.DateTimeFormat("en-CA", {
+    const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Africa/Johannesburg",
       year: "numeric",
       month: "2-digit",
@@ -120,9 +138,12 @@ export default function Home() {
       month: Number(get("month")),
       day: Number(get("day")),
       hour: Number(get("hour")),
+      minute: Number(get("minute")),
     };
   }
 
+  // Before 12 PM: today is allowed.
+  // From 12 PM onwards: collection starts tomorrow.
   function minimumCollectionDate() {
     const now = johannesburgParts();
 
@@ -134,7 +155,11 @@ export default function Home() {
       date.setUTCDate(date.getUTCDate() + 1);
     }
 
-    return date.toISOString().slice(0, 10);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
   }
 
   function formatDate(value: string) {
@@ -200,8 +225,18 @@ export default function Home() {
       return false;
     }
 
-    if (collectionDate < minimumCollectionDate()) {
-      setError("Please select a valid collection date.");
+    const todayMinimum = minimumCollectionDate();
+
+    if (
+      !isValidCalendarDate(collectionDate) ||
+      collectionDate < todayMinimum
+    ) {
+      setCollectionDate("");
+
+      setError(
+        `Invalid collection date. Please select ${formatDate(todayMinimum)} or a later date.`
+      );
+
       return false;
     }
 
@@ -224,6 +259,25 @@ export default function Home() {
     setLoading(true);
 
     try {
+      // SECOND DATE CHECK immediately before saving.
+      // This prevents an outdated date from being submitted.
+
+      const latestMinimumDate = minimumCollectionDate();
+
+      if (
+        !isValidCalendarDate(collectionDate) ||
+        collectionDate < latestMinimumDate
+      ) {
+        setCollectionDate("");
+
+        setError(
+          "Your selected collection date is no longer valid. Please select a new date."
+        );
+
+        setLoading(false);
+        return;
+      }
+
       let savedOrderNumber = "";
       let lastError: any = null;
 
@@ -582,7 +636,29 @@ export default function Home() {
             min={minimumCollectionDate()}
             value={collectionDate}
             onChange={(e) => {
-              setCollectionDate(e.target.value);
+              const selectedDate = e.target.value;
+              const earliestDate = minimumCollectionDate();
+
+              if (!selectedDate) {
+                setCollectionDate("");
+                setError("");
+                return;
+              }
+
+              if (
+                !isValidCalendarDate(selectedDate) ||
+                selectedDate < earliestDate
+              ) {
+                setCollectionDate("");
+
+                setError(
+                  `Past dates are not allowed. Please select ${formatDate(earliestDate)} or a later date.`
+                );
+
+                return;
+              }
+
+              setCollectionDate(selectedDate);
               setError("");
             }}
           />
@@ -604,13 +680,15 @@ export default function Home() {
               gap: "10px",
               padding: "15px",
               marginBottom: "10px",
-              border: collectionMethod === "Home collection"
-                ? "2px solid #218838"
-                : "1px solid #ddd",
+              border:
+                collectionMethod === "Home collection"
+                  ? "2px solid #218838"
+                  : "1px solid #ddd",
               borderRadius: "10px",
-              background: collectionMethod === "Home collection"
-                ? "#f0fff3"
-                : "#fff",
+              background:
+                collectionMethod === "Home collection"
+                  ? "#f0fff3"
+                  : "#fff",
               cursor: "pointer",
             }}
           >
@@ -641,13 +719,15 @@ export default function Home() {
               gap: "10px",
               padding: "15px",
               marginBottom: "15px",
-              border: collectionMethod === "Uber pickup"
-                ? "2px solid #218838"
-                : "1px solid #ddd",
+              border:
+                collectionMethod === "Uber pickup"
+                  ? "2px solid #218838"
+                  : "1px solid #ddd",
               borderRadius: "10px",
-              background: collectionMethod === "Uber pickup"
-                ? "#f0fff3"
-                : "#fff",
+              background:
+                collectionMethod === "Uber pickup"
+                  ? "#f0fff3"
+                  : "#fff",
               cursor: "pointer",
             }}
           >
@@ -682,14 +762,18 @@ export default function Home() {
               }}
             >
               <strong>Uber Pickup Instructions</strong>
+
               <p>
                 Your Uber driver must collect the order from:
               </p>
+
               <p>{COLLECTION_ADDRESS}</p>
+
               <p>
                 Annai Foods will receive your Uber pickup selection
                 with your order details through WhatsApp.
               </p>
+
               <p>
                 Uber arrangements and charges are the customer's
                 responsibility.
