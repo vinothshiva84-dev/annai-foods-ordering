@@ -552,6 +552,7 @@ export default function Home() {
       marginTop: 0,
       marginBottom: "14px",
       fontSize: "20px",
+      textTransform: "uppercase" as const,
     },
 
     menuItem: {
