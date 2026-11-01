@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ==========================================
@@ -22,6 +22,14 @@ type OrderItem = {
   quantity: number;
   price: number;
   subtotal: number;
+};
+
+type CustomerReview = {
+  id: string;
+  display_name: string | null;
+  rating: number;
+  review: string;
+  created_at: string;
 };
 
 // ==========================================
@@ -53,11 +61,7 @@ const GRAVY_MENU: MenuItem[] = [
   { name: "Chicken Kurma / Gravy", price: 100 },
   { name: "Egg Kurma", price: 90 },
   { name: "Veg White Kurma", price: 80 },
-  {
-    name: "Attukal Paya",
-    price: 125,
-    unit: "per portion",
-  },
+  { name: "Attukal Paya", price: 125, unit: "per portion" },
 ];
 
 const COMBO_MENU: MenuItem[] = [
@@ -155,8 +159,6 @@ function minimumCollectionDate(): string {
 
   const date = new Date(Date.UTC(year, month - 1, day));
 
-  // Before 12 PM: same-day collection may be selected.
-  // From 12 PM onwards: collection starts the next day.
   if (hour >= 12) {
     date.setUTCDate(date.getUTCDate() + 1);
   }
@@ -237,6 +239,124 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState("");
   const [whatsappMessage, setWhatsappMessage] = useState("");
+
+  // ==========================================
+  // CUSTOMER REVIEW STATE
+  // ==========================================
+
+  const [reviewName, setReviewName] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
+  const [reviewError, setReviewError] = useState("");
+
+  const [approvedReviews, setApprovedReviews] =
+    useState<CustomerReview[]>([]);
+
+  // ==========================================
+  // LOAD APPROVED CUSTOMER REVIEWS
+  // ==========================================
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    let active = true;
+
+    async function loadApprovedReviews() {
+      const { data, error } = await supabase!
+        .from("customer_reviews")
+        .select("id, display_name, rating, review, created_at")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (!active) return;
+
+      if (error) {
+        console.error("Unable to load reviews:", error);
+        return;
+      }
+
+      setApprovedReviews((data || []) as CustomerReview[]);
+    }
+
+    loadApprovedReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
+
+  // ==========================================
+  // SUBMIT CUSTOMER REVIEW
+  // ==========================================
+
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setReviewError("");
+    setReviewMessage("");
+
+    if (!supabase) {
+      setReviewError("The review system is currently unavailable.");
+      return;
+    }
+
+    if (!reviewName.trim()) {
+      setReviewError("Please enter your name.");
+      return;
+    }
+
+    if (reviewRating < 1 || reviewRating > 5) {
+      setReviewError("Please select a star rating.");
+      return;
+    }
+
+    if (reviewText.trim().length < 5) {
+      setReviewError("Please write at least 5 characters in your review.");
+      return;
+    }
+
+    if (reviewText.trim().length > 1000) {
+      setReviewError("Your review must be 1000 characters or less.");
+      return;
+    }
+
+    setReviewLoading(true);
+
+    try {
+      const { error: insertError } = await supabase
+        .from("customer_reviews")
+        .insert({
+          display_name: reviewName.trim(),
+          rating: reviewRating,
+          review: reviewText.trim(),
+          status: "pending",
+        });
+
+      if (insertError) {
+        console.error("Review submission error:", insertError);
+        throw new Error("Unable to submit your review. Please try again.");
+      }
+
+      setReviewMessage(
+        "Thank you for sharing your experience! Your review has been submitted and will appear publicly after Annai Foods approves it."
+      );
+
+      setReviewName("");
+      setReviewRating(5);
+      setReviewText("");
+    } catch (err: unknown) {
+      setReviewError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
+      );
+    } finally {
+      setReviewLoading(false);
+    }
+  }
 
   // ==========================================
   // CART CALCULATIONS
@@ -456,7 +576,6 @@ export default function Home() {
         subtotal: item.subtotal,
       }));
 
-      // Retry if the random number already exists.
       for (let attempt = 0; attempt < 30; attempt++) {
         orderNumber = generateOrderNumber();
 
@@ -1043,6 +1162,246 @@ export default function Home() {
             </div>
           </section>
         )}
+
+        {/* ======================================
+            ANNAI FOODS CUSTOMER REVIEW SYSTEM
+        ====================================== */}
+
+        <section style={styles.section}>
+          <h2 style={styles.heading}>
+            Share Your Experience
+          </h2>
+
+          <p style={{ color: "#665346", lineHeight: 1.6 }}>
+            Have you enjoyed our food? We would love to hear from you!
+            Please rate your experience and share your feedback.
+          </p>
+
+          <form onSubmit={submitReview}>
+            <label style={styles.label}>
+              Your Name
+            </label>
+
+            <input
+              type="text"
+              value={reviewName}
+              onChange={(event) => setReviewName(event.target.value)}
+              placeholder="Enter your name"
+              maxLength={80}
+              style={styles.input}
+              required
+            />
+
+            <label style={styles.label}>
+              Your Rating
+            </label>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                margin: "12px 0 18px",
+              }}
+            >
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  aria-label={`Rate ${star} out of 5 stars`}
+                  aria-pressed={reviewRating === star}
+                  onClick={() => setReviewRating(star)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: "2px",
+                    cursor: "pointer",
+                    fontSize: "34px",
+                    color:
+                      star <= reviewRating ? "#E6A323" : "#d5d5d5",
+                  }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            <p
+              style={{
+                color: "#8b3f16",
+                fontWeight: "bold",
+                marginTop: "-10px",
+              }}
+            >
+              {reviewRating} out of 5 stars
+            </p>
+
+            <label style={styles.label}>
+              Your Feedback
+            </label>
+
+            <textarea
+              value={reviewText}
+              onChange={(event) => setReviewText(event.target.value)}
+              placeholder="Tell us what you enjoyed about your Annai Foods experience..."
+              maxLength={1000}
+              rows={5}
+              required
+              style={{
+                ...styles.input,
+                resize: "vertical",
+                fontFamily: "Arial, sans-serif",
+              }}
+            />
+
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#806d5f",
+                textAlign: "right",
+                marginTop: "-10px",
+              }}
+            >
+              {reviewText.length}/1000 characters
+            </p>
+
+            {reviewError && (
+              <div
+                role="alert"
+                style={{
+                  background: "#ffeded",
+                  color: "#a00000",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "14px",
+                }}
+              >
+                {reviewError}
+              </div>
+            )}
+
+            {reviewMessage && (
+              <div
+                role="status"
+                style={{
+                  background: "#eaf7ed",
+                  color: "#216b35",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "14px",
+                  lineHeight: 1.5,
+                }}
+              >
+                {reviewMessage}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={reviewLoading}
+              style={{
+                ...styles.button,
+                width: "100%",
+                padding: "14px",
+                opacity: reviewLoading ? 0.6 : 1,
+              }}
+            >
+              {reviewLoading
+                ? "Submitting Review..."
+                : "Submit My Review"}
+            </button>
+          </form>
+
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#806d5f",
+              marginTop: "14px",
+              lineHeight: 1.5,
+            }}
+          >
+            Thank you for your feedback! All reviews are checked by
+            Annai Foods before they are published publicly.
+          </p>
+        </section>
+
+        {/* ======================================
+            APPROVED CUSTOMER REVIEWS
+        ====================================== */}
+
+        <section style={styles.section}>
+          <h2 style={styles.heading}>
+            What Our Customers Say
+          </h2>
+
+          <p style={{ color: "#665346", marginTop: "-5px" }}>
+            Real feedback shared by our customers.
+          </p>
+
+          {approvedReviews.length === 0 ? (
+            <p style={{ color: "#806d5f", lineHeight: 1.6 }}>
+              Customer reviews will appear here once they have been
+              approved. We look forward to sharing your experiences!
+            </p>
+          ) : (
+            <div>
+              {approvedReviews.map((review) => (
+                <article
+                  key={review.id}
+                  style={{
+                    borderBottom: "1px solid #eee5dc",
+                    padding: "15px 0",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#E6A323",
+                      fontSize: "22px",
+                      letterSpacing: "2px",
+                    }}
+                    aria-label={`${review.rating} out of 5 stars`}
+                  >
+                    {"★".repeat(review.rating)}
+                    <span style={{ color: "#d5d5d5" }}>
+                      {"★".repeat(5 - review.rating)}
+                    </span>
+                  </div>
+
+                  <p
+                    style={{
+                      lineHeight: 1.6,
+                      margin: "8px 0",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {review.review}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                      fontSize: "13px",
+                      color: "#806d5f",
+                    }}
+                  >
+                    <strong>
+                      {review.display_name || "Annai Foods Customer"}
+                    </strong>
+
+                    <span>
+                      {new Date(review.created_at).toLocaleDateString(
+                        "en-ZA",
+                        { timeZone: "Africa/Johannesburg" }
+                      )}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         {/* FOOTER */}
 
