@@ -1,19 +1,50 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
+
+// ==========================================
+// TYPES
+// ==========================================
+
+type MenuItem = {
+  name: string;
+  price: number;
+  type?: "idiyappam" | "combo" | "party";
+  description?: string;
+  unit?: string;
+};
+
+type CollectionMethod = "Home collection" | "Uber pickup";
+
+type OrderItem = {
+  name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+};
 
 // ==========================================
 // ANNai FOODS MENU
 // ==========================================
 
-const MENU = [
+const MENU: MenuItem[] = [
   { name: "Rice Idiyappam", price: 30, type: "idiyappam" },
   { name: "Ragi Idiyappam", price: 35, type: "idiyappam" },
   { name: "Wheat Idiyappam", price: 35, type: "idiyappam" },
 
-  { name: "Sweet Rice Idiyappam", price: 45, type: "idiyappam", unit: "per portion" },
-  { name: "Sweet Ragi Idiyappam", price: 45, type: "idiyappam", unit: "per portion" },
+  {
+    name: "Sweet Rice Idiyappam",
+    price: 45,
+    type: "idiyappam",
+    unit: "per portion",
+  },
+  {
+    name: "Sweet Ragi Idiyappam",
+    price: 45,
+    type: "idiyappam",
+    unit: "per portion",
+  },
 
   { name: "Lamb Kurma / Gravy", price: 140 },
   { name: "Chicken Kurma / Gravy", price: 100 },
@@ -25,7 +56,11 @@ const MENU = [
   { name: "Egg Idiyappam Kothu", price: 80 },
   { name: "Chicken Idiyappam Kothu", price: 100 },
 
-  { name: "Attukal Paya", price: 125, unit: "per portion" },
+  {
+    name: "Attukal Paya",
+    price: 125,
+    unit: "per portion",
+  },
 
   {
     name: "Combo 1",
@@ -41,7 +76,7 @@ const MENU = [
   },
 ];
 
-const PARTY_MENU = [
+const PARTY_MENU: MenuItem[] = [
   {
     name: "Chennai Style Lamb Dum Biryani with Egg",
     price: 140,
@@ -67,17 +102,18 @@ const WHATSAPP_NUMBERS = [
 ];
 
 // ==========================================
-// SUPABASE
+// SUPABASE CONFIGURATION
 // ==========================================
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 // ==========================================
 // DATE HELPERS
 // ==========================================
 
-function johannesburgParts(date = new Date()) {
+function johannesburgParts(date = new Date()): Record<string, string> {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
@@ -88,7 +124,7 @@ function johannesburgParts(date = new Date()) {
     hourCycle: "h23",
   }).formatToParts(date);
 
-  const result = {};
+  const result: Record<string, string> = {};
 
   parts.forEach((part) => {
     if (part.type !== "literal") {
@@ -99,7 +135,7 @@ function johannesburgParts(date = new Date()) {
   return result;
 }
 
-function minimumCollectionDate() {
+function minimumCollectionDate(): string {
   const parts = johannesburgParts();
 
   const year = Number(parts.year);
@@ -109,8 +145,8 @@ function minimumCollectionDate() {
 
   const date = new Date(Date.UTC(year, month - 1, day));
 
-  // Orders before 12:00 PM may select today.
-  // Orders from 12:00 PM onwards must select tomorrow.
+  // Before 12 PM: same-day collection may be selected.
+  // From 12 PM onwards: collection starts the next day.
   if (hour >= 12) {
     date.setUTCDate(date.getUTCDate() + 1);
   }
@@ -122,7 +158,7 @@ function minimumCollectionDate() {
   ].join("-");
 }
 
-function isValidCalendarDate(value) {
+function isValidCalendarDate(value: string): boolean {
   if (!value) return false;
 
   const parts = value.split("-").map(Number);
@@ -139,7 +175,7 @@ function isValidCalendarDate(value) {
   );
 }
 
-function formatDate(value) {
+function formatDate(value: string): string {
   if (!value) return "";
 
   const [year, month, day] = value.split("-");
@@ -151,11 +187,12 @@ function formatDate(value) {
 // UNIQUE FOUR-DIGIT ORDER NUMBER
 // ==========================================
 
-function generateOrderNumber() {
+function generateOrderNumber(): string {
   const randomNumber = new Uint32Array(1);
 
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
     crypto.getRandomValues(randomNumber);
+
     return String(1000 + (randomNumber[0] % 9000));
   }
 
@@ -175,13 +212,16 @@ export default function Home() {
     return createClient(supabaseUrl, supabaseKey);
   }, []);
 
-  const [quantities, setQuantities] = useState({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
+
   const [collectionDate, setCollectionDate] = useState(
     minimumCollectionDate()
   );
-  const [collectionMethod, setCollectionMethod] = useState("Home collection");
+
+  const [collectionMethod, setCollectionMethod] =
+    useState<CollectionMethod>("Home collection");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -245,10 +285,10 @@ export default function Home() {
   );
 
   // ==========================================
-  // QUANTITY CONTROLS
+  // UPDATE QUANTITY
   // ==========================================
 
-  function updateQuantity(itemName, change) {
+  function updateQuantity(itemName: string, change: number) {
     setQuantities((previous) => {
       const current = Number(previous[itemName] || 0);
       const next = Math.max(0, current + change);
@@ -268,7 +308,7 @@ export default function Home() {
   // VALIDATION
   // ==========================================
 
-  function validate() {
+  function validate(): string {
     if (!supabase) {
       return "The order system is not configured. Please contact Annai Foods.";
     }
@@ -285,11 +325,17 @@ export default function Home() {
       return "Please select at least one menu item.";
     }
 
-    if (selectedRegularItems.length > 0 && idiyappamPlates < 5) {
+    if (
+      selectedRegularItems.length > 0 &&
+      idiyappamPlates < 5
+    ) {
       return "The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.";
     }
 
-    if (selectedPartyItems.length > 0 && partyPlateCount < 5) {
+    if (
+      selectedPartyItems.length > 0 &&
+      partyPlateCount < 5
+    ) {
       return "The minimum biryani order is 5 plates. You can mix Lamb and Chicken Biryani.";
     }
 
@@ -312,20 +358,22 @@ export default function Home() {
   }
 
   // ==========================================
-  // WHATSAPP MESSAGE
+  // CREATE WHATSAPP MESSAGE
   // ==========================================
 
-  function createWhatsAppMessage(orderNumber) {
-    const lines = [];
+  function createWhatsAppMessage(orderNumber: string): string {
+    const lines: string[] = [];
 
-    lines.push("ANNai FOODS - NEW ORDER");
+    lines.push("ANNAI FOODS - NEW ORDER");
     lines.push("========================");
     lines.push(`Order Number: ${orderNumber}`);
     lines.push("");
+
     lines.push(`Customer: ${customer.trim()}`);
     lines.push(`Phone: ${phone.trim()}`);
     lines.push(`Collection Date: ${formatDate(collectionDate)}`);
     lines.push(`Collection Method: ${collectionMethod}`);
+
     lines.push("");
     lines.push("ORDER DETAILS");
     lines.push("------------------------");
@@ -347,6 +395,7 @@ export default function Home() {
     lines.push("");
     lines.push(`TOTAL AMOUNT: R${total.toFixed(2)}`);
     lines.push("");
+
     lines.push(`Collection Address: ${COLLECTION_ADDRESS}`);
 
     if (collectionMethod === "Uber pickup") {
@@ -366,7 +415,7 @@ export default function Home() {
   // SUBMIT ORDER
   // ==========================================
 
-  async function submitOrder(event) {
+  async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
@@ -378,21 +427,26 @@ export default function Home() {
       return;
     }
 
+    if (!supabase) {
+      setError("Supabase is not configured.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       let savedOrder = false;
       let orderNumber = "";
-      let lastError = null;
+      let lastError: { message: string; code?: string } | null = null;
 
-      const orderItems = selectedItems.map((item) => ({
+      const orderItems: OrderItem[] = selectedItems.map((item) => ({
         name: item.name,
         quantity: item.quantity,
         price: item.price,
         subtotal: item.subtotal,
       }));
 
-      // Retry if a random four-digit number already exists.
+      // Retry if the random number already exists.
       for (let attempt = 0; attempt < 30; attempt++) {
         orderNumber = generateOrderNumber();
 
@@ -435,11 +489,13 @@ export default function Home() {
       setSubmittedOrderNumber(orderNumber);
       setWhatsappMessage(message);
 
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
 
       setError(
-        err.message || "Something went wrong while submitting your order."
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while submitting your order."
       );
     } finally {
       setLoading(false);
@@ -458,18 +514,21 @@ export default function Home() {
       color: "#35251b",
       fontFamily: "Arial, sans-serif",
     },
+
     container: {
       maxWidth: "760px",
       margin: "0 auto",
     },
+
     header: {
-      textAlign: "center",
+      textAlign: "center" as const,
       padding: "20px 10px",
       background: "#ffffff",
       borderRadius: "16px",
       marginBottom: "18px",
       boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
     },
+
     section: {
       background: "#ffffff",
       borderRadius: "14px",
@@ -477,12 +536,14 @@ export default function Home() {
       marginBottom: "16px",
       boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
     },
+
     heading: {
       color: "#8b3f16",
       marginTop: 0,
       marginBottom: "14px",
       fontSize: "20px",
     },
+
     menuItem: {
       display: "flex",
       justifyContent: "space-between",
@@ -491,6 +552,7 @@ export default function Home() {
       padding: "12px 0",
       borderBottom: "1px solid #eee5dc",
     },
+
     button: {
       border: "none",
       background: "#8b3f16",
@@ -501,16 +563,18 @@ export default function Home() {
       fontWeight: "bold",
       cursor: "pointer",
     },
+
     input: {
       width: "100%",
       padding: "12px",
       border: "1px solid #d8c8b8",
       borderRadius: "8px",
       fontSize: "16px",
-      boxSizing: "border-box",
+      boxSizing: "border-box" as const,
       marginTop: "6px",
       marginBottom: "14px",
     },
+
     label: {
       display: "block",
       fontWeight: "bold",
@@ -522,26 +586,49 @@ export default function Home() {
   // MENU DISPLAY
   // ==========================================
 
-  function renderMenuItem(item) {
+  function renderMenuItem(item: MenuItem) {
     const quantity = Number(quantities[item.name] || 0);
 
     return (
       <div key={item.name} style={styles.menuItem}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: "bold" }}>{item.name}</div>
+          <div style={{ fontWeight: "bold" }}>
+            {item.name}
+          </div>
 
           {item.description && (
-            <div style={{ fontSize: "13px", color: "#777", marginTop: "3px" }}>
+            <div
+              style={{
+                fontSize: "13px",
+                color: "#777",
+                marginTop: "3px",
+              }}
+            >
               {item.description}
             </div>
           )}
 
-          <div style={{ color: "#8b3f16", fontWeight: "bold", marginTop: "5px" }}>
-            R{item.price} {item.unit ? `/ ${item.unit.replace("per ", "")}` : ""}
+          <div
+            style={{
+              color: "#8b3f16",
+              fontWeight: "bold",
+              marginTop: "5px",
+            }}
+          >
+            R{item.price}
+            {item.unit
+              ? ` / ${item.unit.replace("per ", "")}`
+              : ""}
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "9px",
+          }}
+        >
           <button
             type="button"
             style={styles.button}
@@ -551,7 +638,13 @@ export default function Home() {
             −
           </button>
 
-          <span style={{ minWidth: "18px", textAlign: "center", fontWeight: "bold" }}>
+          <span
+            style={{
+              minWidth: "18px",
+              textAlign: "center",
+              fontWeight: "bold",
+            }}
+          >
             {quantity}
           </span>
 
@@ -575,6 +668,8 @@ export default function Home() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
+
+        {/* HEADER */}
 
         <header style={styles.header}>
           <img
@@ -601,9 +696,12 @@ export default function Home() {
           </p>
 
           <p style={{ fontSize: "13px", color: "#665346" }}>
-            Biryani minimum order: 5 plates. Orders before 12:00 PM for same-day collection, subject to availability.
+            Biryani minimum order: 5 plates. Orders before 12:00 PM
+            for same-day collection, subject to availability.
           </p>
         </header>
+
+        {/* REGULAR MENU */}
 
         <section style={styles.section}>
           <h2 style={styles.heading}>Regular Menu</h2>
@@ -611,8 +709,12 @@ export default function Home() {
           {MENU.map(renderMenuItem)}
         </section>
 
+        {/* PARTY MENU */}
+
         <section style={styles.section}>
-          <h2 style={styles.heading}>Party Menu - Dum Biryani</h2>
+          <h2 style={styles.heading}>
+            Party Menu - Dum Biryani
+          </h2>
 
           <p style={{ fontSize: "14px", color: "#665346" }}>
             Minimum 5 plates. You can mix Lamb and Chicken Biryani.
@@ -620,6 +722,8 @@ export default function Home() {
 
           {PARTY_MENU.map(renderMenuItem)}
         </section>
+
+        {/* CART */}
 
         <section style={styles.section}>
           <h2 style={styles.heading}>Your Order</h2>
@@ -644,18 +748,27 @@ export default function Home() {
                   {item.name} x {item.quantity}
                 </span>
 
-                <strong>R{item.subtotal.toFixed(2)}</strong>
+                <strong>
+                  R{item.subtotal.toFixed(2)}
+                </strong>
               </div>
             ))
           )}
 
           <div style={{ marginTop: "14px", lineHeight: 1.8 }}>
-            <div>Total Items: <strong>{itemCount}</strong></div>
-            <div>Total Idiyappam Plates: <strong>{idiyappamPlates}</strong></div>
+            <div>
+              Total Items: <strong>{itemCount}</strong>
+            </div>
+
+            <div>
+              Total Idiyappam Plates:{" "}
+              <strong>{idiyappamPlates}</strong>
+            </div>
 
             {selectedPartyItems.length > 0 && (
               <div>
-                Total Biryani Plates: <strong>{partyPlateCount}</strong>
+                Total Biryani Plates:{" "}
+                <strong>{partyPlateCount}</strong>
               </div>
             )}
 
@@ -665,10 +778,14 @@ export default function Home() {
           </div>
         </section>
 
+        {/* COLLECTION DETAILS */}
+
         <section style={styles.section}>
           <h2 style={styles.heading}>Collection Details</h2>
 
-          <p style={{ fontWeight: "bold" }}>Collection Address:</p>
+          <p style={{ fontWeight: "bold" }}>
+            Collection Address:
+          </p>
 
           <p>{COLLECTION_ADDRESS}</p>
 
@@ -676,7 +793,10 @@ export default function Home() {
             href="https://www.google.com/maps/search/?api=1&query=Unit+23+Fairview+Crescent+Wood+County+Estate+Midrand+Johannesburg"
             target="_blank"
             rel="noreferrer"
-            style={{ color: "#8b3f16", fontWeight: "bold" }}
+            style={{
+              color: "#8b3f16",
+              fontWeight: "bold",
+            }}
           >
             View collection address on Google Maps
           </a>
@@ -709,7 +829,7 @@ export default function Home() {
               value="Home collection"
               checked={collectionMethod === "Home collection"}
               onChange={(event) => {
-                setCollectionMethod(event.target.value);
+                setCollectionMethod(event.target.value as CollectionMethod);
                 setSubmittedOrderNumber("");
                 setWhatsappMessage("");
               }}
@@ -724,7 +844,7 @@ export default function Home() {
               value="Uber pickup"
               checked={collectionMethod === "Uber pickup"}
               onChange={(event) => {
-                setCollectionMethod(event.target.value);
+                setCollectionMethod(event.target.value as CollectionMethod);
                 setSubmittedOrderNumber("");
                 setWhatsappMessage("");
               }}
@@ -733,9 +853,13 @@ export default function Home() {
           </label>
 
           <p style={{ fontSize: "13px", color: "#665346" }}>
-            For Uber pickup, the customer must arrange the Uber driver to collect from the address above. Uber charges are the customer's responsibility.
+            For Uber pickup, the customer must arrange the Uber driver
+            to collect from the address above. Uber charges are the
+            customer's responsibility.
           </p>
         </section>
+
+        {/* CUSTOMER DETAILS AND SUBMISSION */}
 
         <form onSubmit={submitOrder}>
           <section style={styles.section}>
@@ -799,7 +923,8 @@ export default function Home() {
                 width: "100%",
                 padding: "15px",
                 fontSize: "17px",
-                opacity: loading || submittedOrderNumber ? 0.6 : 1,
+                opacity:
+                  loading || submittedOrderNumber ? 0.6 : 1,
               }}
             >
               {loading
@@ -811,6 +936,8 @@ export default function Home() {
           </section>
         </form>
 
+        {/* WHATSAPP NOTIFICATIONS */}
+
         {submittedOrderNumber && (
           <section style={styles.section}>
             <div style={{ textAlign: "center" }}>
@@ -820,7 +947,12 @@ export default function Home() {
 
               <p>Your unique order number is:</p>
 
-              <h1 style={{ color: "#8b3f16", fontSize: "36px" }}>
+              <h1
+                style={{
+                  color: "#8b3f16",
+                  fontSize: "36px",
+                }}
+              >
                 {submittedOrderNumber}
               </h1>
 
@@ -831,7 +963,9 @@ export default function Home() {
               {WHATSAPP_NUMBERS.map((number) => (
                 <a
                   key={number}
-                  href={`https://wa.me/${number}?text=${encodeURIComponent(whatsappMessage)}`}
+                  href={`https://wa.me/${number}?text=${encodeURIComponent(
+                    whatsappMessage
+                  )}`}
                   target="_blank"
                   rel="noreferrer"
                   style={{
@@ -845,19 +979,40 @@ export default function Home() {
                     marginTop: "12px",
                   }}
                 >
-                  Send Order on WhatsApp - {number === "27651188768" ? "065 118 8768" : "060 710 4011"}
+                  Send Order on WhatsApp -{" "}
+                  {number === "27651188768"
+                    ? "065 118 8768"
+                    : "060 710 4011"}
                 </a>
               ))}
 
-              <p style={{ fontSize: "13px", color: "#665346", marginTop: "15px" }}>
-                Please press Send in WhatsApp to deliver your order notification. Your order is saved in our system, but the WhatsApp messages must be sent manually.
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "#665346",
+                  marginTop: "15px",
+                }}
+              >
+                Please press Send in WhatsApp to deliver your order
+                notification. Your order is saved in our system, but
+                the WhatsApp messages must be sent manually.
               </p>
             </div>
           </section>
         )}
 
-        <footer style={{ textAlign: "center", padding: "20px", color: "#806d5f" }}>
-          <strong>Thank you for choosing Annai Foods!</strong>
+        {/* FOOTER */}
+
+        <footer
+          style={{
+            textAlign: "center",
+            padding: "20px",
+            color: "#806d5f",
+          }}
+        >
+          <strong>
+            Thank you for choosing Annai Foods!
+          </strong>
         </footer>
 
       </div>
