@@ -25,14 +25,13 @@ type OrderItem = {
 };
 
 // ==========================================
-// ANNai FOODS MENU
+// MENU CATEGORIES
 // ==========================================
 
-const MENU: MenuItem[] = [
+const IDIYAPPAM_MENU: MenuItem[] = [
   { name: "Rice Idiyappam", price: 30, type: "idiyappam" },
   { name: "Ragi Idiyappam", price: 35, type: "idiyappam" },
   { name: "Wheat Idiyappam", price: 35, type: "idiyappam" },
-
   {
     name: "Sweet Rice Idiyappam",
     price: 45,
@@ -45,23 +44,23 @@ const MENU: MenuItem[] = [
     type: "idiyappam",
     unit: "per portion",
   },
+  { name: "Egg Idiyappam Kothu", price: 80 },
+  { name: "Chicken Idiyappam Kothu", price: 100 },
+];
 
+const GRAVY_MENU: MenuItem[] = [
   { name: "Lamb Kurma / Gravy", price: 140 },
   { name: "Chicken Kurma / Gravy", price: 100 },
   { name: "Egg Kurma", price: 90 },
   { name: "Veg White Kurma", price: 80 },
-  { name: "Egg Semiya", price: 80 },
-  { name: "Coconut Milk", price: 50 },
-
-  { name: "Egg Idiyappam Kothu", price: 80 },
-  { name: "Chicken Idiyappam Kothu", price: 100 },
-
   {
     name: "Attukal Paya",
     price: 125,
     unit: "per portion",
   },
+];
 
+const COMBO_MENU: MenuItem[] = [
   {
     name: "Combo 1",
     price: 140,
@@ -74,6 +73,10 @@ const MENU: MenuItem[] = [
     type: "combo",
     description: "2 plates Idiyappam + Veg White Kurma + Coconut Milk",
   },
+];
+
+const SIDES_MENU: MenuItem[] = [
+  { name: "Coconut Milk", price: 50 },
 ];
 
 const PARTY_MENU: MenuItem[] = [
@@ -91,7 +94,14 @@ const PARTY_MENU: MenuItem[] = [
   },
 ];
 
-const ALL_MENU = [...MENU, ...PARTY_MENU];
+const MENU: MenuItem[] = [
+  ...IDIYAPPAM_MENU,
+  ...GRAVY_MENU,
+  ...COMBO_MENU,
+  ...SIDES_MENU,
+];
+
+const ALL_MENU: MenuItem[] = [...MENU, ...PARTY_MENU];
 
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
@@ -701,19 +711,51 @@ export default function Home() {
           </p>
         </header>
 
-        {/* REGULAR MENU */}
+        {/* VARIETIES OF IDIYAPPAM */}
 
         <section style={styles.section}>
-          <h2 style={styles.heading}>Regular Menu</h2>
+          <h2 style={styles.heading}>
+            Varieties of Idiyappam
+          </h2>
 
-          {MENU.map(renderMenuItem)}
+          {IDIYAPPAM_MENU.map(renderMenuItem)}
+        </section>
+
+        {/* GRAVY AND KURMA */}
+
+        <section style={styles.section}>
+          <h2 style={styles.heading}>
+            Gravy & Kurma
+          </h2>
+
+          {GRAVY_MENU.map(renderMenuItem)}
+        </section>
+
+        {/* COMBOS */}
+
+        <section style={styles.section}>
+          <h2 style={styles.heading}>
+            Combos
+          </h2>
+
+          {COMBO_MENU.map(renderMenuItem)}
+        </section>
+
+        {/* SIDES */}
+
+        <section style={styles.section}>
+          <h2 style={styles.heading}>
+            Sides
+          </h2>
+
+          {SIDES_MENU.map(renderMenuItem)}
         </section>
 
         {/* PARTY MENU */}
 
         <section style={styles.section}>
           <h2 style={styles.heading}>
-            Party Menu - Dum Biryani
+            Party Menu – Chennai Style Dum Biryani
           </h2>
 
           <p style={{ fontSize: "14px", color: "#665346" }}>
