@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
@@ -1310,18 +1311,6 @@ export default function Home() {
                 : "Submit My Review"}
             </button>
           </form>
-
-          <p
-            style={{
-              fontSize: "12px",
-              color: "#806d5f",
-              marginTop: "14px",
-              lineHeight: 1.5,
-            }}
-          >
-            Thank you for your feedback! All reviews are checked by
-            Annai Foods before they are published publicly.
-          </p>
         </section>
 
         {/* ======================================
@@ -1337,12 +1326,7 @@ export default function Home() {
             Real feedback shared by our customers.
           </p>
 
-          {approvedReviews.length === 0 ? (
-            <p style={{ color: "#806d5f", lineHeight: 1.6 }}>
-              Customer reviews will appear here once they have been
-              approved. We look forward to sharing your experiences!
-            </p>
-          ) : (
+          {approvedReviews.length > 0 && (
             <div>
               {approvedReviews.map((review) => (
                 <article
