@@ -1,56 +1,58 @@
-
 "use client";
 
 import { useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-type MenuItem = {
-  name: string;
-  price: number;
-  type?: "idiyappam" | "combo" | "party";
-  description?: string;
-};
+// ==========================================
+// ANNai FOODS MENU
+// ==========================================
 
-type CollectionMethod = "Home collection" | "Uber pickup";
-
-const MENU: MenuItem[] = [
+const MENU = [
   { name: "Rice Idiyappam", price: 30, type: "idiyappam" },
   { name: "Ragi Idiyappam", price: 35, type: "idiyappam" },
   { name: "Wheat Idiyappam", price: 35, type: "idiyappam" },
+
+  { name: "Sweet Rice Idiyappam", price: 45, type: "idiyappam", unit: "per portion" },
+  { name: "Sweet Ragi Idiyappam", price: 45, type: "idiyappam", unit: "per portion" },
+
   { name: "Lamb Kurma / Gravy", price: 140 },
   { name: "Chicken Kurma / Gravy", price: 100 },
   { name: "Egg Kurma", price: 90 },
   { name: "Veg White Kurma", price: 80 },
   { name: "Egg Semiya", price: 80 },
   { name: "Coconut Milk", price: 50 },
+
   { name: "Egg Idiyappam Kothu", price: 80 },
   { name: "Chicken Idiyappam Kothu", price: 100 },
+
+  { name: "Attukal Paya", price: 125, unit: "per portion" },
+
   {
     name: "Combo 1",
     price: 140,
-    description: "2 plates Idiyappam + 1 portion Chicken Gravy",
     type: "combo",
+    description: "2 plates Idiyappam + 1 portion Chicken Gravy",
   },
   {
     name: "Combo 2",
     price: 125,
-    description: "2 plates Idiyappam + Veg White Kurma + Coconut Milk",
     type: "combo",
+    description: "2 plates Idiyappam + Veg White Kurma + Coconut Milk",
   },
 ];
 
-const PARTY_MENU: MenuItem[] = [
+const PARTY_MENU = [
   {
     name: "Chennai Style Lamb Dum Biryani with Egg",
     price: 140,
     type: "party",
-    description: "Party orders only · Price per plate",
+    unit: "per plate",
   },
   {
     name: "Chennai Style Chicken Dum Biryani with Egg",
     price: 110,
     type: "party",
-    description: "Party orders only · Price per plate",
+    unit: "per plate",
   },
 ];
 
@@ -59,26 +61,75 @@ const ALL_MENU = [...MENU, ...PARTY_MENU];
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
 
-// Both Annai Foods WhatsApp notification recipients
 const WHATSAPP_NUMBERS = [
-  { label: "Annai Foods - Number 1", number: "27651188768" },
-  { label: "Annai Foods - Number 2", number: "27607104011" },
+  "27651188768",
+  "27607104011",
 ];
 
+// ==========================================
+// SUPABASE
+// ==========================================
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-const supabasePublishableKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+// ==========================================
+// DATE HELPERS
+// ==========================================
 
-const supabase =
-  supabaseUrl && supabasePublishableKey
-    ? createClient(supabaseUrl, supabasePublishableKey)
-    : null;
+function johannesburgParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
 
-function isValidCalendarDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const result = {};
 
-  const [year, month, day] = value.split("-").map(Number);
+  parts.forEach((part) => {
+    if (part.type !== "literal") {
+      result[part.type] = part.value;
+    }
+  });
+
+  return result;
+}
+
+function minimumCollectionDate() {
+  const parts = johannesburgParts();
+
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  const hour = Number(parts.hour);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  // Orders before 12:00 PM may select today.
+  // Orders from 12:00 PM onwards must select tomorrow.
+  if (hour >= 12) {
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function isValidCalendarDate(value) {
+  if (!value) return false;
+
+  const parts = value.split("-").map(Number);
+
+  if (parts.length !== 3) return false;
+
+  const [year, month, day] = parts;
   const date = new Date(Date.UTC(year, month - 1, day));
 
   return (
@@ -88,26 +139,72 @@ function isValidCalendarDate(value: string) {
   );
 }
 
-export default function Home() {
-  const [quantities, setQuantities] =
-    useState<Record<string, number>>({});
+function formatDate(value) {
+  if (!value) return "";
 
+  const [year, month, day] = value.split("-");
+
+  return `${day}/${month}/${year}`;
+}
+
+// ==========================================
+// UNIQUE FOUR-DIGIT ORDER NUMBER
+// ==========================================
+
+function generateOrderNumber() {
+  const randomNumber = new Uint32Array(1);
+
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(randomNumber);
+    return String(1000 + (randomNumber[0] % 9000));
+  }
+
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+// ==========================================
+// MAIN PAGE
+// ==========================================
+
+export default function Home() {
+  const supabase = useMemo(() => {
+    if (!supabaseUrl || !supabaseKey) {
+      return null;
+    }
+
+    return createClient(supabaseUrl, supabaseKey);
+  }, []);
+
+  const [quantities, setQuantities] = useState({});
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
-  const [collectionDate, setCollectionDate] = useState("");
-
-  const [collectionMethod, setCollectionMethod] =
-    useState<CollectionMethod>("Home collection");
+  const [collectionDate, setCollectionDate] = useState(
+    minimumCollectionDate()
+  );
+  const [collectionMethod, setCollectionMethod] = useState("Home collection");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [submittedOrderNumber, setSubmittedOrderNumber] = useState("");
   const [whatsappMessage, setWhatsappMessage] = useState("");
 
-  const selectedItems = useMemo(
-    () => ALL_MENU.filter((item) => (quantities[item.name] || 0) > 0),
-    [quantities]
-  );
+  // ==========================================
+  // CART CALCULATIONS
+  // ==========================================
+
+  const selectedItems = useMemo(() => {
+    return ALL_MENU
+      .filter((item) => Number(quantities[item.name] || 0) > 0)
+      .map((item) => {
+        const quantity = Number(quantities[item.name]);
+
+        return {
+          ...item,
+          quantity,
+          subtotal: item.price * quantity,
+        };
+      });
+  }, [quantities]);
 
   const selectedRegularItems = selectedItems.filter(
     (item) => item.type !== "party"
@@ -118,255 +215,194 @@ export default function Home() {
   );
 
   const total = selectedItems.reduce(
-    (sum, item) =>
-      sum + item.price * (quantities[item.name] || 0),
+    (sum, item) => sum + item.subtotal,
     0
   );
 
   const itemCount = selectedItems.reduce(
-    (sum, item) => sum + (quantities[item.name] || 0),
+    (sum, item) => sum + item.quantity,
     0
   );
 
-  const idiyappamPlates = selectedItems.reduce((sum, item) => {
-    const quantity = quantities[item.name] || 0;
+  const idiyappamPlates = selectedRegularItems.reduce(
+    (sum, item) => {
+      if (item.type === "idiyappam") {
+        return sum + item.quantity;
+      }
 
-    if (item.type === "idiyappam") return sum + quantity;
-    if (item.type === "combo") return sum + quantity * 2;
+      if (item.type === "combo") {
+        return sum + item.quantity * 2;
+      }
 
-    return sum;
-  }, 0);
+      return sum;
+    },
+    0
+  );
 
   const partyPlateCount = selectedPartyItems.reduce(
-    (sum, item) => sum + (quantities[item.name] || 0),
+    (sum, item) => sum + item.quantity,
     0
   );
 
-  function changeQuantity(name: string, amount: number) {
-    setQuantities((previous) => ({
-      ...previous,
-      [name]: Math.max(0, (previous[name] || 0) + amount),
-    }));
+  // ==========================================
+  // QUANTITY CONTROLS
+  // ==========================================
 
+  function updateQuantity(itemName, change) {
+    setQuantities((previous) => {
+      const current = Number(previous[itemName] || 0);
+      const next = Math.max(0, current + change);
+
+      return {
+        ...previous,
+        [itemName]: next,
+      };
+    });
+
+    setSubmittedOrderNumber("");
+    setWhatsappMessage("");
     setError("");
   }
 
-  function johannesburgParts() {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Africa/Johannesburg",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date());
-
-    const get = (type: string) =>
-      parts.find((part) => part.type === type)?.value || "00";
-
-    return {
-      year: Number(get("year")),
-      month: Number(get("month")),
-      day: Number(get("day")),
-      hour: Number(get("hour")),
-      minute: Number(get("minute")),
-    };
-  }
-
-  function minimumCollectionDate() {
-    const now = johannesburgParts();
-
-    const date = new Date(
-      Date.UTC(now.year, now.month - 1, now.day)
-    );
-
-    if (now.hour >= 12) {
-      date.setUTCDate(date.getUTCDate() + 1);
-    }
-
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  function formatDate(value: string) {
-    const [year, month, day] = value.split("-").map(Number);
-
-    return new Date(
-      Date.UTC(year, month - 1, day)
-    ).toLocaleDateString("en-ZA", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    });
-  }
-
-  function generateOrderNumber() {
-    const random = new Uint32Array(1);
-    crypto.getRandomValues(random);
-
-    return String(1000 + (random[0] % 9000));
-  }
+  // ==========================================
+  // VALIDATION
+  // ==========================================
 
   function validate() {
     if (!supabase) {
-      setError(
-        "Database connection is not configured. Please contact Annai Foods."
-      );
-      return false;
+      return "The order system is not configured. Please contact Annai Foods.";
     }
 
     if (!customer.trim()) {
-      setError("Please enter your full name.");
-      return false;
+      return "Please enter your name.";
     }
 
-    if (!/^\d{10}$/.test(phone)) {
-      setError("Please enter a valid 10-digit WhatsApp number.");
-      return false;
+    if (!/^[0-9]{10}$/.test(phone.trim())) {
+      return "Please enter a valid 10-digit South African phone number.";
     }
 
     if (selectedItems.length === 0) {
-      setError("Please select food from the menu.");
-      return false;
+      return "Please select at least one menu item.";
     }
 
-    if (
-      selectedRegularItems.length > 0 &&
-      idiyappamPlates < 5
-    ) {
-      setError(
-        "Regular menu orders require a minimum of 5 plates of Idiyappam."
-      );
-      return false;
+    if (selectedRegularItems.length > 0 && idiyappamPlates < 5) {
+      return "The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.";
     }
 
-    if (
-      selectedPartyItems.length > 0 &&
-      partyPlateCount < 5
-    ) {
-      setError(
-        "Party orders require a minimum of 5 biryani plates."
-      );
-      return false;
+    if (selectedPartyItems.length > 0 && partyPlateCount < 5) {
+      return "The minimum biryani order is 5 plates. You can mix Lamb and Chicken Biryani.";
     }
 
-    if (!collectionDate) {
-      setError("Please select your collection date.");
-      return false;
+    if (!isValidCalendarDate(collectionDate)) {
+      return "Please select a valid collection date.";
     }
 
-    const earliestDate = minimumCollectionDate();
-
-    if (
-      !isValidCalendarDate(collectionDate) ||
-      collectionDate < earliestDate
-    ) {
-      setCollectionDate("");
-      setError(
-        `Please select ${formatDate(earliestDate)} or a later date.`
-      );
-      return false;
+    if (collectionDate < minimumCollectionDate()) {
+      return "Please select an available collection date.";
     }
 
     if (
       collectionMethod !== "Home collection" &&
       collectionMethod !== "Uber pickup"
     ) {
-      setError("Please select a collection method.");
-      return false;
+      return "Please select a collection method.";
     }
 
-    return true;
+    return "";
   }
 
-  function createWhatsAppMessage(orderNumber: string) {
-    return [
-      "ANNAI FOODS - NEW ORDER",
-      "",
-      `Order number: ${orderNumber}`,
-      `Customer: ${customer.trim()}`,
-      `WhatsApp: ${phone}`,
-      `Collection date: ${formatDate(collectionDate)}`,
-      `Collection method: ${collectionMethod}`,
-      "",
-      "REGULAR MENU:",
-      ...(selectedRegularItems.length > 0
-        ? selectedRegularItems.map((item) => {
-            const quantity = quantities[item.name];
-            return `${item.name} x ${quantity} = R${item.price * quantity}`;
-          })
-        : ["No regular menu items selected"]),
-      "",
-      "PARTY ORDERS:",
-      ...(selectedPartyItems.length > 0
-        ? selectedPartyItems.map((item) => {
-            const quantity = quantities[item.name];
-            return `${item.name} x ${quantity} = R${item.price * quantity}`;
-          })
-        : ["No party biryani selected"]),
-      "",
-      `Party biryani plates: ${partyPlateCount}`,
-      `Total selected items: ${itemCount}`,
-      `Total Idiyappam plates: ${idiyappamPlates}`,
-      `GRAND TOTAL: R${total}`,
-      "",
-      "COLLECTION / UBER PICKUP ADDRESS:",
-      COLLECTION_ADDRESS,
-      "",
-      collectionMethod === "Uber pickup"
-        ? "Customer selected Uber pickup. Please arrange collection with the customer."
-        : "Customer selected home collection.",
-      "",
-      "Thank you for choosing Annai Foods!",
-    ].join("\n");
+  // ==========================================
+  // WHATSAPP MESSAGE
+  // ==========================================
+
+  function createWhatsAppMessage(orderNumber) {
+    const lines = [];
+
+    lines.push("ANNai FOODS - NEW ORDER");
+    lines.push("========================");
+    lines.push(`Order Number: ${orderNumber}`);
+    lines.push("");
+    lines.push(`Customer: ${customer.trim()}`);
+    lines.push(`Phone: ${phone.trim()}`);
+    lines.push(`Collection Date: ${formatDate(collectionDate)}`);
+    lines.push(`Collection Method: ${collectionMethod}`);
+    lines.push("");
+    lines.push("ORDER DETAILS");
+    lines.push("------------------------");
+
+    selectedItems.forEach((item) => {
+      lines.push(
+        `${item.name} x ${item.quantity} = R${item.subtotal.toFixed(2)}`
+      );
+    });
+
+    lines.push("");
+    lines.push(`Total Items: ${itemCount}`);
+    lines.push(`Total Idiyappam Plates: ${idiyappamPlates}`);
+
+    if (selectedPartyItems.length > 0) {
+      lines.push(`Total Biryani Plates: ${partyPlateCount}`);
+    }
+
+    lines.push("");
+    lines.push(`TOTAL AMOUNT: R${total.toFixed(2)}`);
+    lines.push("");
+    lines.push(`Collection Address: ${COLLECTION_ADDRESS}`);
+
+    if (collectionMethod === "Uber pickup") {
+      lines.push("");
+      lines.push(
+        "Customer will arrange an Uber driver to collect the order from the collection address. Uber charges are the customer's responsibility."
+      );
+    }
+
+    lines.push("");
+    lines.push("Thank you for ordering from Annai Foods!");
+
+    return lines.join("\n");
   }
 
-  async function submitOrder() {
+  // ==========================================
+  // SUBMIT ORDER
+  // ==========================================
+
+  async function submitOrder(event) {
+    event.preventDefault();
+
     setError("");
 
-    if (loading || !validate() || !supabase) return;
+    const validationError = validate();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const latestMinimumDate = minimumCollectionDate();
+      let savedOrder = false;
+      let orderNumber = "";
+      let lastError = null;
 
-      if (
-        !isValidCalendarDate(collectionDate) ||
-        collectionDate < latestMinimumDate
-      ) {
-        setCollectionDate("");
-        setError(
-          "Your selected collection date is no longer valid. Please select a new date."
-        );
-        return;
-      }
+      const orderItems = selectedItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.subtotal,
+      }));
 
-      let savedOrderNumber = "";
-      let lastError: any = null;
-
-      // Generate a random four-digit order number.
-      // Database UNIQUE constraint is required.
+      // Retry if a random four-digit number already exists.
       for (let attempt = 0; attempt < 30; attempt++) {
-        const candidate = generateOrderNumber();
+        orderNumber = generateOrderNumber();
 
         const { error: insertError } = await supabase
           .from("orders")
           .insert({
-            order_number: candidate,
+            order_number: orderNumber,
             customer_name: customer.trim(),
-            customer_phone: phone,
-            items: selectedItems.map((item) => ({
-              name: item.name,
-              quantity: quantities[item.name],
-              price: item.price,
-              subtotal: item.price * quantities[item.name],
-            })),
+            customer_phone: phone.trim(),
+            items: orderItems,
             total_amount: total,
             idiyappam_plates: idiyappamPlates,
             collection_date: collectionDate,
@@ -374,123 +410,156 @@ export default function Home() {
           });
 
         if (!insertError) {
-          savedOrderNumber = candidate;
+          savedOrder = true;
           break;
         }
 
         lastError = insertError;
 
         if (insertError.code !== "23505") {
-          throw insertError;
+          break;
         }
       }
 
-      if (!savedOrderNumber) {
-        throw (
-          lastError ||
-          new Error("Could not create a unique order number.")
+      if (!savedOrder) {
+        console.error("Order saving error:", lastError);
+
+        throw new Error(
+          lastError?.message ||
+          "Unable to save your order. Please try again."
         );
       }
 
-      // Save order notification message for BOTH recipients.
-      const message = createWhatsAppMessage(savedOrderNumber);
+      const message = createWhatsAppMessage(orderNumber);
 
-      setSubmittedOrderNumber(savedOrderNumber);
+      setSubmittedOrderNumber(orderNumber);
       setWhatsappMessage(message);
 
-      // Do not redirect to just one WhatsApp number.
-      // Display two separate notification links instead.
-
-    } catch (err: any) {
-      console.error("Annai Foods order submission error:", err);
+    } catch (err) {
+      console.error(err);
 
       setError(
-        err?.message ||
-          "Your order could not be submitted. Please try again."
+        err.message || "Something went wrong while submitting your order."
       );
     } finally {
       setLoading(false);
     }
   }
 
-  const buttonStyle: React.CSSProperties = {
-    border: "none",
-    background: "#75451f",
-    color: "#fff",
-    padding: "9px 14px",
-    borderRadius: "8px",
-    fontSize: "17px",
-    fontWeight: 700,
-    cursor: "pointer",
+  // ==========================================
+  // STYLES
+  // ==========================================
+
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#fff8ef",
+      padding: "16px",
+      color: "#35251b",
+      fontFamily: "Arial, sans-serif",
+    },
+    container: {
+      maxWidth: "760px",
+      margin: "0 auto",
+    },
+    header: {
+      textAlign: "center",
+      padding: "20px 10px",
+      background: "#ffffff",
+      borderRadius: "16px",
+      marginBottom: "18px",
+      boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    },
+    section: {
+      background: "#ffffff",
+      borderRadius: "14px",
+      padding: "18px",
+      marginBottom: "16px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+    },
+    heading: {
+      color: "#8b3f16",
+      marginTop: 0,
+      marginBottom: "14px",
+      fontSize: "20px",
+    },
+    menuItem: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "10px",
+      padding: "12px 0",
+      borderBottom: "1px solid #eee5dc",
+    },
+    button: {
+      border: "none",
+      background: "#8b3f16",
+      color: "#ffffff",
+      borderRadius: "8px",
+      padding: "9px 13px",
+      fontSize: "17px",
+      fontWeight: "bold",
+      cursor: "pointer",
+    },
+    input: {
+      width: "100%",
+      padding: "12px",
+      border: "1px solid #d8c8b8",
+      borderRadius: "8px",
+      fontSize: "16px",
+      boxSizing: "border-box",
+      marginTop: "6px",
+      marginBottom: "14px",
+    },
+    label: {
+      display: "block",
+      fontWeight: "bold",
+      marginTop: "10px",
+    },
   };
 
-  const fieldStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "13px",
-    margin: "7px 0 15px",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    fontSize: "16px",
-    boxSizing: "border-box",
-  };
+  // ==========================================
+  // MENU DISPLAY
+  // ==========================================
 
-  const cardStyle: React.CSSProperties = {
-    background: "#fff",
-    borderRadius: "16px",
-    padding: "18px",
-    marginBottom: "16px",
-    boxShadow: "0 2px 8px #0000000c",
-  };
+  function renderMenuItem(item) {
+    const quantity = Number(quantities[item.name] || 0);
 
-  function renderMenuItem(item: MenuItem) {
     return (
-      <div
-        key={item.name}
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "8px",
-          padding: "13px 0",
-          borderBottom: "1px solid #eee",
-        }}
-      >
+      <div key={item.name} style={styles.menuItem}>
         <div style={{ flex: 1 }}>
-          <strong>{item.name}</strong>
+          <div style={{ fontWeight: "bold" }}>{item.name}</div>
 
           {item.description && (
-            <div style={{ fontSize: "12px", color: "#777" }}>
+            <div style={{ fontSize: "13px", color: "#777", marginTop: "3px" }}>
               {item.description}
             </div>
           )}
 
-          <div style={{ color: "#75451f", fontWeight: 700 }}>
-            R{item.price}
-            {item.type === "party" ? " per plate" : ""}
+          <div style={{ color: "#8b3f16", fontWeight: "bold", marginTop: "5px" }}>
+            R{item.price} {item.unit ? `/ ${item.unit.replace("per ", "")}` : ""}
           </div>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "9px",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
           <button
             type="button"
-            style={buttonStyle}
-            onClick={() => changeQuantity(item.name, -1)}
+            style={styles.button}
+            onClick={() => updateQuantity(item.name, -1)}
+            aria-label={`Remove one ${item.name}`}
           >
             −
           </button>
 
-          <strong>{quantities[item.name] || 0}</strong>
+          <span style={{ minWidth: "18px", textAlign: "center", fontWeight: "bold" }}>
+            {quantity}
+          </span>
 
           <button
             type="button"
-            style={buttonStyle}
-            onClick={() => changeQuantity(item.name, 1)}
+            style={styles.button}
+            onClick={() => updateQuantity(item.name, 1)}
+            aria-label={`Add one ${item.name}`}
           >
             +
           </button>
@@ -499,94 +568,65 @@ export default function Home() {
     );
   }
 
+  // ==========================================
+  // PAGE UI
+  // ==========================================
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#fff8ed",
-        padding: "20px 14px",
-        fontFamily: "Arial, sans-serif",
-        color: "#352315",
-      }}
-    >
-      <div style={{ maxWidth: "650px", margin: "auto" }}>
-        <header
-          style={{
-            textAlign: "center",
-            padding: "22px 16px 26px",
-            marginBottom: "16px",
-            background: "#fffdf5",
-            border: "1px solid #dce8d5",
-            borderRadius: "18px",
-          }}
-        >
+    <main style={styles.page}>
+      <div style={styles.container}>
+
+        <header style={styles.header}>
           <img
             src="/annai-foods-logo.jpg"
             alt="Annai Foods Logo"
             style={{
-              display: "block",
-              width: "min(100%, 330px)",
-              height: "auto",
+              width: "125px",
+              height: "125px",
               objectFit: "contain",
-              margin: "0 auto 12px",
+              marginBottom: "8px",
             }}
           />
 
-          <h1 style={{ color: "#075b20", fontSize: "30px" }}>
-            Welcome to Annai Foods ❤️
+          <h1 style={{ color: "#8b3f16", margin: "5px 0" }}>
+            Welcome to Annai Foods
           </h1>
 
-          <h3 style={{ color: "#397c2c" }}>
-            Fresh Homemade Idiyappam · Made with Love
-          </h3>
+          <p style={{ margin: "8px 0", color: "#665346" }}>
+            Delicious homemade food, prepared with love.
+          </p>
 
-          <p>
-            Choose your food, review your cart and submit your order.
+          <p style={{ fontWeight: "bold", color: "#a33c1a" }}>
+            Minimum order: 5 plates of Idiyappam
+          </p>
+
+          <p style={{ fontSize: "13px", color: "#665346" }}>
+            Biryani minimum order: 5 plates. Orders before 12:00 PM for same-day collection, subject to availability.
           </p>
         </header>
 
-        <section style={cardStyle}>
-          <h2>Our Food Menu</h2>
-
-          <p style={{ color: "#a04b24" }}>
-            Minimum 5 plates of Idiyappam per regular menu order.
-          </p>
+        <section style={styles.section}>
+          <h2 style={styles.heading}>Regular Menu</h2>
 
           {MENU.map(renderMenuItem)}
         </section>
 
-        <section
-          style={{
-            ...cardStyle,
-            border: "2px solid #d49a32",
-          }}
-        >
-          <h2>🎉 Party Orders Only</h2>
+        <section style={styles.section}>
+          <h2 style={styles.heading}>Party Menu - Dum Biryani</h2>
 
-          <p style={{ color: "#a04b24", fontWeight: 700 }}>
-            Party orders start from 5 people.
-          </p>
-
-          <p style={{ fontSize: "14px", color: "#666" }}>
-            Minimum 5 biryani plates per party order. Choose Lamb
-            or Chicken, or a combination of both, with a total of
-            at least 5 plates.
+          <p style={{ fontSize: "14px", color: "#665346" }}>
+            Minimum 5 plates. You can mix Lamb and Chicken Biryani.
           </p>
 
           {PARTY_MENU.map(renderMenuItem)}
         </section>
 
-        <section
-          style={{
-            ...cardStyle,
-            border: "2px solid #218838",
-          }}
-        >
-          <h2>🛒 Your Shopping Cart</h2>
+        <section style={styles.section}>
+          <h2 style={styles.heading}>Your Order</h2>
 
           {selectedItems.length === 0 ? (
             <p style={{ color: "#777" }}>
-              Your cart is empty. Please select food from the menu.
+              Your cart is empty. Please select items from the menu.
             </p>
           ) : (
             selectedItems.map((item) => (
@@ -595,426 +635,231 @@ export default function Home() {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 0",
-                  borderBottom: "1px solid #eee",
+                  gap: "10px",
+                  padding: "8px 0",
+                  borderBottom: "1px solid #eee5dc",
                 }}
               >
-                <div>
-                  <strong>{item.name}</strong>
+                <span>
+                  {item.name} x {item.quantity}
+                </span>
 
-                  <div style={{ fontSize: "13px", color: "#777" }}>
-                    R{item.price} × {quantities[item.name]}
-                  </div>
-
-                  <strong style={{ color: "#75451f" }}>
-                    R{item.price * quantities[item.name]}
-                  </strong>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "7px",
-                  }}
-                >
-                  <button
-                    type="button"
-                    style={buttonStyle}
-                    onClick={() => changeQuantity(item.name, -1)}
-                  >
-                    −
-                  </button>
-
-                  <strong>{quantities[item.name]}</strong>
-
-                  <button
-                    type="button"
-                    style={buttonStyle}
-                    onClick={() => changeQuantity(item.name, 1)}
-                  >
-                    +
-                  </button>
-                </div>
+                <strong>R{item.subtotal.toFixed(2)}</strong>
               </div>
             ))
           )}
 
-          <p>
-            Total selected items: <strong>{itemCount}</strong>
-          </p>
+          <div style={{ marginTop: "14px", lineHeight: 1.8 }}>
+            <div>Total Items: <strong>{itemCount}</strong></div>
+            <div>Total Idiyappam Plates: <strong>{idiyappamPlates}</strong></div>
 
-          <p>
-            Total Idiyappam plates: <strong>{idiyappamPlates}</strong>
-          </p>
+            {selectedPartyItems.length > 0 && (
+              <div>
+                Total Biryani Plates: <strong>{partyPlateCount}</strong>
+              </div>
+            )}
 
-          <p>
-            Total party biryani plates:{" "}
-            <strong>{partyPlateCount}</strong>
-          </p>
-
-          <h2 style={{ color: "#218838" }}>
-            Grand Total: R{total}
-          </h2>
+            <h2 style={{ color: "#8b3f16" }}>
+              Grand Total: R{total.toFixed(2)}
+            </h2>
+          </div>
         </section>
 
-        <section style={cardStyle}>
-          <h2>📍 Collection / Uber Pickup Address</h2>
+        <section style={styles.section}>
+          <h2 style={styles.heading}>Collection Details</h2>
+
+          <p style={{ fontWeight: "bold" }}>Collection Address:</p>
 
           <p>{COLLECTION_ADDRESS}</p>
 
           <a
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-              COLLECTION_ADDRESS
-            )}`}
+            href="https://www.google.com/maps/search/?api=1&query=Unit+23+Fairview+Crescent+Wood+County+Estate+Midrand+Johannesburg"
             target="_blank"
             rel="noreferrer"
-            style={{
-              color: "#18783a",
-              fontWeight: 700,
-            }}
+            style={{ color: "#8b3f16", fontWeight: "bold" }}
           >
-            Get Directions on Google Maps
+            View collection address on Google Maps
           </a>
-        </section>
 
-        <section style={cardStyle}>
-          <h2>Customer Details</h2>
-
-          <label htmlFor="customer">Your Name</label>
+          <label style={styles.label}>
+            Collection Date
+          </label>
 
           <input
-            id="customer"
-            style={fieldStyle}
-            placeholder="Enter your full name"
-            value={customer}
-            onChange={(e) => setCustomer(e.target.value)}
-          />
-
-          <label htmlFor="phone">WhatsApp Number</label>
-
-          <input
-            id="phone"
-            style={fieldStyle}
-            type="tel"
-            inputMode="numeric"
-            pattern="[0-9]{10}"
-            maxLength={10}
-            placeholder="Enter 10-digit phone number"
-            value={phone}
-            onChange={(e) => {
-              const digits = e.target.value
-                .replace(/\D/g, "")
-                .slice(0, 10);
-
-              setPhone(digits);
-              setError("");
-            }}
-          />
-
-          <p
-            style={{
-              fontSize: "12px",
-              color: "#777",
-              marginTop: "-8px",
-            }}
-          >
-            Enter exactly 10 digits. No spaces or country code.
-          </p>
-
-          <label htmlFor="collectionDate">Collection Date</label>
-
-          <input
-            id="collectionDate"
-            style={fieldStyle}
             type="date"
-            min={minimumCollectionDate()}
             value={collectionDate}
-            onChange={(e) => {
-              const selectedDate = e.target.value;
-              const earliestDate = minimumCollectionDate();
-
-              if (!selectedDate) {
-                setCollectionDate("");
-                setError("");
-                return;
-              }
-
-              if (
-                !isValidCalendarDate(selectedDate) ||
-                selectedDate < earliestDate
-              ) {
-                setCollectionDate("");
-
-                setError(
-                  `Past dates are not allowed. Please select ${formatDate(earliestDate)} or a later date.`
-                );
-
-                return;
-              }
-
-              setCollectionDate(selectedDate);
-              setError("");
+            min={minimumCollectionDate()}
+            onChange={(event) => {
+              setCollectionDate(event.target.value);
+              setSubmittedOrderNumber("");
+              setWhatsappMessage("");
             }}
+            style={styles.input}
+            required
           />
 
-          <p style={{ color: "#397c2c", fontSize: "14px" }}>
-            {johannesburgParts().hour >= 12
-              ? "Today's collection is closed. Select tomorrow or any future date."
-              : "Select today before 12 PM or any future date."}
-          </p>
+          <label style={styles.label}>
+            Collection Method
+          </label>
 
-          <hr
-            style={{
-              border: "none",
-              borderTop: "1px solid #eee",
-            }}
-          />
-
-          <h2>🚗 Choose Your Collection Method</h2>
-
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "15px",
-              marginBottom: "10px",
-              border:
-                collectionMethod === "Home collection"
-                  ? "2px solid #218838"
-                  : "1px solid #ddd",
-              borderRadius: "10px",
-              background:
-                collectionMethod === "Home collection"
-                  ? "#f0fff3"
-                  : "#fff",
-              cursor: "pointer",
-            }}
-          >
+          <label style={{ display: "block", margin: "12px 0" }}>
             <input
               type="radio"
               name="collectionMethod"
               value="Home collection"
               checked={collectionMethod === "Home collection"}
-              onChange={() => {
-                setCollectionMethod("Home collection");
-                setError("");
+              onChange={(event) => {
+                setCollectionMethod(event.target.value);
+                setSubmittedOrderNumber("");
+                setWhatsappMessage("");
               }}
             />
-
-            <span>
-              <strong>🏠 Home Collection</strong>
-              <br />
-              <span style={{ fontSize: "13px", color: "#666" }}>
-                Collect your order from our home address.
-              </span>
-            </span>
+            {" "}Home collection
           </label>
 
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "15px",
-              marginBottom: "15px",
-              border:
-                collectionMethod === "Uber pickup"
-                  ? "2px solid #218838"
-                  : "1px solid #ddd",
-              borderRadius: "10px",
-              background:
-                collectionMethod === "Uber pickup"
-                  ? "#f0fff3"
-                  : "#fff",
-              cursor: "pointer",
-            }}
-          >
+          <label style={{ display: "block", margin: "12px 0" }}>
             <input
               type="radio"
               name="collectionMethod"
               value="Uber pickup"
               checked={collectionMethod === "Uber pickup"}
-              onChange={() => {
-                setCollectionMethod("Uber pickup");
-                setError("");
+              onChange={(event) => {
+                setCollectionMethod(event.target.value);
+                setSubmittedOrderNumber("");
+                setWhatsappMessage("");
               }}
             />
-
-            <span>
-              <strong>🚗 Uber Pickup</strong>
-              <br />
-              <span style={{ fontSize: "13px", color: "#666" }}>
-                Arrange an Uber to collect your order from our address.
-              </span>
-            </span>
+            {" "}Uber pickup
           </label>
 
-          {collectionMethod === "Uber pickup" && (
-            <div
-              style={{
-                background: "#fff8ed",
-                padding: "12px",
-                borderRadius: "8px",
-                marginBottom: "15px",
-                fontSize: "14px",
-              }}
-            >
-              <strong>Uber Pickup Instructions</strong>
-
-              <p>
-                Your Uber driver must collect the order from:
-              </p>
-
-              <p>{COLLECTION_ADDRESS}</p>
-
-              <p>
-                Annai Foods will receive your Uber pickup selection
-                with your order details through WhatsApp.
-              </p>
-
-              <p>
-                Uber arrangements and charges are the customer's
-                responsibility.
-              </p>
-            </div>
-          )}
-
-          <p>
-            <strong>Order cutoff:</strong> 12:00 PM Johannesburg time
+          <p style={{ fontSize: "13px", color: "#665346" }}>
+            For Uber pickup, the customer must arrange the Uber driver to collect from the address above. Uber charges are the customer's responsibility.
           </p>
-
-          <p style={{ fontSize: "14px" }}>
-            Your order will be saved in the Annai Foods database.
-            After submission, send the order notification to both
-            Annai Foods WhatsApp numbers.
-          </p>
-
-          <button
-            type="button"
-            onClick={submitOrder}
-            disabled={loading || !!submittedOrderNumber}
-            style={{
-              ...buttonStyle,
-              width: "100%",
-              padding: "16px",
-              background: "#218838",
-              opacity:
-                loading || submittedOrderNumber ? 0.65 : 1,
-            }}
-          >
-            {loading
-              ? "Submitting your order..."
-              : submittedOrderNumber
-                ? "Order Saved Successfully"
-                : "Submit Order & Prepare WhatsApp Notifications"}
-          </button>
-
-          {error && (
-            <div
-              role="alert"
-              style={{
-                background: "#ffe5e5",
-                color: "#b00020",
-                padding: "12px",
-                borderRadius: "8px",
-                marginTop: "15px",
-              }}
-            >
-              {error}
-            </div>
-          )}
         </section>
 
-        {submittedOrderNumber && (
-          <section
-            style={{
-              ...cardStyle,
-              border: "2px solid #218838",
-            }}
-          >
-            <h2 style={{ color: "#218838" }}>
-              Order Saved Successfully
-            </h2>
+        <form onSubmit={submitOrder}>
+          <section style={styles.section}>
+            <h2 style={styles.heading}>Customer Details</h2>
 
-            <p>
-              Your order number:{" "}
-              <strong>{submittedOrderNumber}</strong>
-            </p>
+            <label style={styles.label}>
+              Full Name
+            </label>
 
-            <p>
-              Grand total: <strong>R{total}</strong>
-            </p>
-
-            <hr
-              style={{
-                border: "none",
-                borderTop: "1px solid #eee",
+            <input
+              type="text"
+              value={customer}
+              onChange={(event) => {
+                setCustomer(event.target.value);
+                setSubmittedOrderNumber("");
+                setWhatsappMessage("");
               }}
+              placeholder="Enter your full name"
+              style={styles.input}
+              required
             />
 
-            <h3>Send Order Notification to Annai Foods</h3>
+            <label style={styles.label}>
+              WhatsApp / Contact Number
+            </label>
 
-            <p style={{ fontSize: "14px" }}>
-              Please send the same order details to both WhatsApp
-              numbers below.
-            </p>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => {
+                setPhone(event.target.value);
+                setSubmittedOrderNumber("");
+                setWhatsappMessage("");
+              }}
+              placeholder="e.g. 0712345678"
+              maxLength={10}
+              style={styles.input}
+              required
+            />
 
-            {WHATSAPP_NUMBERS.map((recipient) => (
-              <a
-                key={recipient.number}
-                href={`https://wa.me/${recipient.number}?text=${encodeURIComponent(
-                  whatsappMessage
-                )}`}
-                target="_blank"
-                rel="noreferrer"
+            {error && (
+              <div
+                role="alert"
                 style={{
-                  display: "block",
-                  textAlign: "center",
-                  textDecoration: "none",
-                  background: "#218838",
-                  color: "#fff",
-                  padding: "15px",
-                  borderRadius: "10px",
-                  fontWeight: 700,
-                  marginTop: "12px",
+                  background: "#ffeded",
+                  color: "#a00000",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  marginBottom: "14px",
                 }}
               >
-                <span>
-                  Send to {recipient.label}
-                </span>
-                <br />
-                {recipient.number === "27651188768"
-                  ? "0651188768"
-                  : "0607104011"}
-              </a>
-            ))}
+                {error}
+              </div>
+            )}
 
-            <p
+            <button
+              type="submit"
+              disabled={loading || Boolean(submittedOrderNumber)}
               style={{
-                fontSize: "12px",
-                color: "#777",
-                marginTop: "15px",
+                ...styles.button,
+                width: "100%",
+                padding: "15px",
+                fontSize: "17px",
+                opacity: loading || submittedOrderNumber ? 0.6 : 1,
               }}
             >
-              WhatsApp will open with the order message prepared.
-              Press Send in WhatsApp for each number.
-            </p>
+              {loading
+                ? "Submitting Order..."
+                : submittedOrderNumber
+                ? "Order Submitted"
+                : "Submit Order"}
+            </button>
+          </section>
+        </form>
+
+        {submittedOrderNumber && (
+          <section style={styles.section}>
+            <div style={{ textAlign: "center" }}>
+              <h2 style={{ color: "#218838" }}>
+                Your Order Has Been Saved!
+              </h2>
+
+              <p>Your unique order number is:</p>
+
+              <h1 style={{ color: "#8b3f16", fontSize: "36px" }}>
+                {submittedOrderNumber}
+              </h1>
+
+              <p>
+                Please send your order details to Annai Foods on WhatsApp.
+              </p>
+
+              {WHATSAPP_NUMBERS.map((number) => (
+                <a
+                  key={number}
+                  href={`https://wa.me/${number}?text=${encodeURIComponent(whatsappMessage)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "block",
+                    background: "#25D366",
+                    color: "#ffffff",
+                    textDecoration: "none",
+                    padding: "14px",
+                    borderRadius: "9px",
+                    fontWeight: "bold",
+                    marginTop: "12px",
+                  }}
+                >
+                  Send Order on WhatsApp - {number === "27651188768" ? "065 118 8768" : "060 710 4011"}
+                </a>
+              ))}
+
+              <p style={{ fontSize: "13px", color: "#665346", marginTop: "15px" }}>
+                Please press Send in WhatsApp to deliver your order notification. Your order is saved in our system, but the WhatsApp messages must be sent manually.
+              </p>
+            </div>
           </section>
         )}
 
-        <footer
-          style={{
-            textAlign: "center",
-            padding: "20px",
-            color: "#75451f",
-          }}
-        >
-          <p>Thank you for choosing Annai Foods ❤️</p>
-          <p>Fresh Homemade Idiyappam · Made with Love</p>
+        <footer style={{ textAlign: "center", padding: "20px", color: "#806d5f" }}>
+          <strong>Thank you for choosing Annai Foods!</strong>
         </footer>
+
       </div>
     </main>
   );
