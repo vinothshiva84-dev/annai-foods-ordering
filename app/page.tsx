@@ -3,10 +3,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ======================================================
-// SUPABASE
-// ======================================================
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -16,136 +12,13 @@ const supabase = createClient(
   supabasePublishableKey
 );
 
-// ======================================================
-// TYPES
-// ======================================================
-
 type MenuItem = {
+  id: string;
   name: string;
   price: number;
-  type?: "idiyappam" | "combo" | "party";
   description?: string;
+  type?: "idiyappam" | "combo" | "party" | "other";
 };
-
-type CartItem = MenuItem & {
-  quantity: number;
-};
-
-// ======================================================
-// MENU
-// ======================================================
-
-const MENU: MenuItem[] = [
-  // REGULAR IDIYAPPAM
-  {
-    name: "Rice Idiyappam",
-    price: 30,
-    type: "idiyappam",
-    description: "Fresh homemade rice idiyappam",
-  },
-  {
-    name: "Ragi Idiyappam",
-    price: 35,
-    type: "idiyappam",
-    description: "Healthy homemade ragi idiyappam",
-  },
-  {
-    name: "Wheat Idiyappam",
-    price: 35,
-    type: "idiyappam",
-    description: "Fresh homemade wheat idiyappam",
-  },
-  {
-    name: "Sweet Rice Idiyappam",
-    price: 45,
-    type: "idiyappam",
-    description: "Sweet rice idiyappam",
-  },
-  {
-    name: "Sweet Ragi Idiyappam",
-    price: 45,
-    type: "idiyappam",
-    description: "Sweet ragi idiyappam",
-  },
-
-  // KOTHU
-  {
-    name: "Egg Idiyappam Kothu",
-    price: 80,
-    description: "Egg idiyappam kothu",
-  },
-  {
-    name: "Chicken Idiyappam Kothu",
-    price: 100,
-    description: "Chicken idiyappam kothu",
-  },
-
-  // GRAVY & KURMA
-  {
-    name: "Lamb Kurma / Gravy",
-    price: 140,
-    description: "Homemade lamb kurma / gravy",
-  },
-  {
-    name: "Chicken Kurma / Gravy",
-    price: 100,
-    description: "Homemade chicken kurma / gravy",
-  },
-  {
-    name: "Egg Kurma",
-    price: 90,
-    description: "Homemade egg kurma",
-  },
-  {
-    name: "Veg White Kurma",
-    price: 80,
-    description: "Creamy vegetarian white kurma",
-  },
-  {
-    name: "Attukal Paya",
-    price: 125,
-    description: "Traditional homemade attukal paya",
-  },
-
-  // COMBOS
-  {
-    name: "Combo 1",
-    price: 140,
-    type: "combo",
-    description: "2 plates Idiyappam + 1 portion Chicken Gravy",
-  },
-  {
-    name: "Combo 2",
-    price: 125,
-    type: "combo",
-    description: "2 plates Idiyappam + Veg White Kurma",
-  },
-
-  // SIDES
-  {
-    name: "Coconut Milk",
-    price: 50,
-    description: "Fresh coconut milk",
-  },
-
-  // PARTY MENU
-  {
-    name: "Chennai Style Lamb Dum Biryani with Egg",
-    price: 140,
-    type: "party",
-    description: "Chennai-style lamb dum biryani with egg",
-  },
-  {
-    name: "Chennai Style Chicken Dum Biryani with Egg",
-    price: 110,
-    type: "party",
-    description: "Chennai-style chicken dum biryani with egg",
-  },
-];
-
-// ======================================================
-// CONSTANTS
-// ======================================================
 
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
@@ -155,11 +28,124 @@ const WHATSAPP_NUMBERS = [
   "27607104011",
 ];
 
-// ======================================================
-// DATE HELPERS
-// ======================================================
+const MENU: MenuItem[] = [
+  {
+    id: "rice",
+    name: "Rice Idiyappam",
+    price: 30,
+    type: "idiyappam",
+    description: "Fresh homemade rice idiyappam",
+  },
+  {
+    id: "ragi",
+    name: "Ragi Idiyappam",
+    price: 35,
+    type: "idiyappam",
+    description: "Healthy homemade ragi idiyappam",
+  },
+  {
+    id: "wheat",
+    name: "Wheat Idiyappam",
+    price: 35,
+    type: "idiyappam",
+    description: "Fresh homemade wheat idiyappam",
+  },
+  {
+    id: "sweet-rice",
+    name: "Sweet Rice Idiyappam",
+    price: 45,
+    type: "idiyappam",
+    description: "Sweet rice idiyappam",
+  },
+  {
+    id: "sweet-ragi",
+    name: "Sweet Ragi Idiyappam",
+    price: 45,
+    type: "idiyappam",
+    description: "Sweet ragi idiyappam",
+  },
 
-function getJohannesburgDateParts() {
+  {
+    id: "egg-kothu",
+    name: "Egg Idiyappam Kothu",
+    price: 80,
+    description: "Egg idiyappam kothu",
+  },
+  {
+    id: "chicken-kothu",
+    name: "Chicken Idiyappam Kothu",
+    price: 100,
+    description: "Chicken idiyappam kothu",
+  },
+
+  {
+    id: "lamb-kurma",
+    name: "Lamb Kurma / Gravy",
+    price: 140,
+    description: "Homemade lamb kurma / gravy",
+  },
+  {
+    id: "chicken-kurma",
+    name: "Chicken Kurma / Gravy",
+    price: 100,
+    description: "Homemade chicken kurma / gravy",
+  },
+  {
+    id: "egg-kurma",
+    name: "Egg Kurma",
+    price: 90,
+    description: "Homemade egg kurma",
+  },
+  {
+    id: "veg-kurma",
+    name: "Veg White Kurma",
+    price: 80,
+    description: "Creamy vegetarian white kurma",
+  },
+  {
+    id: "paya",
+    name: "Attukal Paya",
+    price: 125,
+    description: "Traditional homemade attukal paya",
+  },
+
+  {
+    id: "combo-1",
+    name: "Combo 1",
+    price: 140,
+    type: "combo",
+    description: "2 plates Idiyappam + 1 portion Chicken Gravy",
+  },
+  {
+    id: "combo-2",
+    name: "Combo 2",
+    price: 125,
+    type: "combo",
+    description: "2 plates Idiyappam + Veg White Kurma",
+  },
+
+  {
+    id: "coconut-milk",
+    name: "Coconut Milk",
+    price: 50,
+    description: "Fresh coconut milk",
+  },
+
+  {
+    id: "lamb-biryani",
+    name: "Chennai Style Lamb Dum Biryani with Egg",
+    price: 140,
+    type: "party",
+  },
+  {
+    id: "chicken-biryani",
+    name: "Chennai Style Chicken Dum Biryani with Egg",
+    price: 110,
+    type: "party",
+  },
+];
+
+function getJohannesburgNow() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
@@ -171,57 +157,56 @@ function getJohannesburgDateParts() {
     hour12: false,
   }).formatToParts(new Date());
 
-  const get = (type: string) =>
-    parts.find((part) => part.type === type)?.value || "";
+  const get = (name: string) =>
+    parts.find((p) => p.type === name)?.value || "";
 
   return {
     year: Number(get("year")),
     month: Number(get("month")),
     day: Number(get("day")),
     hour: Number(get("hour")),
-    minute: Number(get("minute")),
-    second: Number(get("second")),
   };
 }
 
-function formatDateForInput(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+function formatDateInput(
+  year: number,
+  month: number,
+  day: number
+) {
+  return `${year}-${String(month).padStart(
+    2,
+    "0"
+  )}-${String(day).padStart(2, "0")}`;
 }
 
 function getMinimumCollectionDate() {
-  const now = getJohannesburgDateParts();
+  const now = getJohannesburgNow();
 
-  const today = new Date(
+  const date = new Date(
     now.year,
     now.month - 1,
     now.day
   );
 
-  if (now.hour < 12) {
-    return formatDateForInput(today);
+  if (now.hour >= 12) {
+    date.setDate(date.getDate() + 1);
   }
 
-  today.setDate(today.getDate() + 1);
-
-  return formatDateForInput(today);
+  return formatDateInput(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    date.getDate()
+  );
 }
 
-function formatDisplayDate(dateString: string) {
-  if (!dateString) return "";
+function displayDate(value: string) {
+  if (!value) return "";
 
   const [year, month, day] =
-    dateString.split("-");
+    value.split("-");
 
   return `${day}/${month}/${year}`;
 }
-
-// ======================================================
-// COMPONENT
-// ======================================================
 
 export default function Home() {
   const [quantities, setQuantities] =
@@ -234,9 +219,7 @@ export default function Home() {
     useState("");
 
   const [collectionDate, setCollectionDate] =
-    useState(
-      getMinimumCollectionDate()
-    );
+    useState(getMinimumCollectionDate());
 
   const [collectionMethod, setCollectionMethod] =
     useState<
@@ -246,361 +229,226 @@ export default function Home() {
   const [loading, setLoading] =
     useState(false);
 
-  const [successMessage, setSuccessMessage] =
+  const [error, setError] =
     useState("");
 
-  const [errorMessage, setErrorMessage] =
+  const [success, setSuccess] =
     useState("");
 
-  // ====================================================
-  // CART
-  // ====================================================
+  const cart = useMemo(() => {
+    return MENU
+      .filter(
+        (item) =>
+          (quantities[item.id] || 0) > 0
+      )
+      .map((item) => ({
+        ...item,
+        quantity: quantities[item.id],
+      }));
+  }, [quantities]);
 
-  const cartItems: CartItem[] =
-    useMemo(() => {
-      return MENU
-        .filter(
-          (item) =>
-            (quantities[item.name] || 0) > 0
-        )
-        .map((item) => ({
-          ...item,
-          quantity:
-            quantities[item.name],
-        }));
-    }, [quantities]);
-
-  // ====================================================
-  // TOTALS
-  // ====================================================
-
-  const totalAmount =
-    useMemo(() => {
-      return cartItems.reduce(
-        (total, item) =>
-          total +
-          item.price *
-            item.quantity,
-        0
-      );
-    }, [cartItems]);
-
-  const totalSelectedItems =
-    useMemo(() => {
-      return cartItems.reduce(
-        (total, item) =>
-          total + item.quantity,
-        0
-      );
-    }, [cartItems]);
-
-  const totalIdiyappamPlates =
-    useMemo(() => {
-      return cartItems.reduce(
-        (total, item) => {
-          if (
-            item.type === "idiyappam"
-          ) {
-            return (
-              total +
-              item.quantity
-            );
-          }
-
-          if (
-            item.type === "combo"
-          ) {
-            return (
-              total +
-              item.quantity * 2
-            );
-          }
-
-          return total;
-        },
-        0
-      );
-    }, [cartItems]);
-
-  const totalPartyBiryaniPlates =
-    useMemo(() => {
-      return cartItems.reduce(
-        (total, item) => {
-          if (
-            item.type === "party"
-          ) {
-            return (
-              total +
-              item.quantity
-            );
-          }
-
-          return total;
-        },
-        0
-      );
-    }, [cartItems]);
-
-  const hasRegularItems =
-    cartItems.some(
-      (item) =>
-        item.type !== "party"
+  const total = useMemo(() => {
+    return cart.reduce(
+      (sum, item) =>
+        sum + item.price * item.quantity,
+      0
     );
+  }, [cart]);
 
-  const hasPartyItems =
-    cartItems.some(
-      (item) =>
-        item.type === "party"
+  const totalSelectedItems = useMemo(() => {
+    return cart.reduce(
+      (sum, item) =>
+        sum + item.quantity,
+      0
     );
+  }, [cart]);
 
-  // ====================================================
-  // QUANTITY
-  // ====================================================
-
-  function increaseQuantity(
-    itemName: string
-  ) {
-    setQuantities(
-      (previous) => ({
-        ...previous,
-        [itemName]:
-          (previous[itemName] ||
-            0) + 1,
-      })
-    );
-  }
-
-  function decreaseQuantity(
-    itemName: string
-  ) {
-    setQuantities(
-      (previous) => {
-        const current =
-          previous[itemName] ||
-          0;
-
-        if (current <= 1) {
-          const updated = {
-            ...previous,
-          };
-
-          delete updated[
-            itemName
-          ];
-
-          return updated;
-        }
-
-        return {
-          ...previous,
-          [itemName]:
-            current - 1,
-        };
+  const idiyappamPlates = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      if (item.type === "idiyappam") {
+        return sum + item.quantity;
       }
-    );
+
+      if (item.type === "combo") {
+        return sum + item.quantity * 2;
+      }
+
+      return sum;
+    }, 0);
+  }, [cart]);
+
+  const partyBiryaniPlates = useMemo(() => {
+    return cart.reduce((sum, item) => {
+      if (item.type === "party") {
+        return sum + item.quantity;
+      }
+
+      return sum;
+    }, 0);
+  }, [cart]);
+
+  const hasRegularItems = cart.some(
+    (item) => item.type !== "party"
+  );
+
+  const hasPartyItems = cart.some(
+    (item) => item.type === "party"
+  );
+
+  function increase(id: string) {
+    setQuantities((old) => ({
+      ...old,
+      [id]: (old[id] || 0) + 1,
+    }));
   }
 
-  // ====================================================
-  // PHONE
-  // ====================================================
+  function decrease(id: string) {
+    setQuantities((old) => {
+      const current = old[id] || 0;
 
-  function handlePhoneChange(
-    value: string
-  ) {
-    const digitsOnly =
-      value
-        .replace(/\D/g, "")
-        .slice(0, 10);
+      if (current <= 1) {
+        const next = { ...old };
+        delete next[id];
+        return next;
+      }
 
+      return {
+        ...old,
+        [id]: current - 1,
+      };
+    });
+  }
+
+  function changePhone(value: string) {
     setCustomerPhone(
-      digitsOnly
+      value.replace(/\D/g, "").slice(0, 10)
     );
   }
 
-  // ====================================================
-  // VALIDATION
-  // ====================================================
-
-  function validateOrder() {
-    if (
-      !customerName.trim()
-    ) {
+  function validate() {
+    if (!customerName.trim()) {
       return "Please enter your name.";
     }
 
-    if (
-      !/^\d{10}$/.test(
-        customerPhone
-      )
-    ) {
+    if (!/^\d{10}$/.test(customerPhone)) {
       return "Please enter a valid 10-digit South African phone number.";
     }
 
-    if (
-      !collectionDate
-    ) {
+    if (!collectionDate) {
       return "Please select a collection date.";
     }
 
-    const minimumDate =
-      getMinimumCollectionDate();
-
     if (
       collectionDate <
-      minimumDate
+      getMinimumCollectionDate()
     ) {
-      return "The selected collection date is no longer available. Please select another date.";
+      return "The selected collection date is no longer available.";
     }
 
-    if (
-      cartItems.length ===
-      0
-    ) {
+    if (cart.length === 0) {
       return "Please select at least one menu item.";
     }
 
     if (
       hasRegularItems &&
-      totalIdiyappamPlates < 5
+      idiyappamPlates < 5
     ) {
       return "The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.";
     }
 
     if (
       hasPartyItems &&
-      totalPartyBiryaniPlates < 5
+      partyBiryaniPlates < 5
     ) {
       return "The minimum party order is 5 biryani plates.";
     }
 
-    return null;
+    return "";
   }
 
-  // ====================================================
-  // ORDER NUMBER
-  // ====================================================
-
-  function generateOrderNumber() {
+  function makeOrderNumber() {
     return String(
       Math.floor(
-        1000 +
-          Math.random() *
-            9000
+        1000 + Math.random() * 9000
       )
     );
   }
 
-  // ====================================================
-  // WHATSAPP MESSAGE
-  // ====================================================
-
-  function createWhatsAppMessage(
+  function makeWhatsAppMessage(
     orderNumber: string
   ) {
-    let message = "";
+    let message =
+      "*ANNAI FOODS - NEW ORDER*\n\n";
 
     message +=
-      `*ANNAI FOODS - NEW ORDER*%0A`;
-
-    message += `%0A`;
+      `*Order Number:* ${orderNumber}\n\n`;
 
     message +=
-      `*Order Number:* ${orderNumber}%0A`;
-
-    message += `%0A`;
+      "*Customer Details*\n";
 
     message +=
-      `*Customer Details*%0A`;
+      `Name: ${customerName.trim()}\n`;
 
     message +=
-      `Name: ${customerName.trim()}%0A`;
+      `Phone: ${customerPhone}\n\n`;
 
     message +=
-      `Phone: ${customerPhone}%0A`;
-
-    message += `%0A`;
+      "*Collection Details*\n";
 
     message +=
-      `*Collection Details*%0A`;
-
-    message +=
-      `Collection Date: ${formatDisplayDate(
+      `Collection Date: ${displayDate(
         collectionDate
-      )}%0A`;
+      )}\n`;
 
     message +=
-      `Collection Method: ${collectionMethod}%0A`;
+      `Collection Method: ${collectionMethod}\n`;
 
     message +=
-      `Address: ${COLLECTION_ADDRESS}%0A`;
+      `Address: ${COLLECTION_ADDRESS}\n\n`;
 
-    message += `%0A`;
+    message += "*Order Items*\n";
 
-    message +=
-      `*Order Items*%0A`;
-
-    cartItems.forEach(
-      (item) => {
-        const itemTotal =
-          item.price *
-          item.quantity;
-
-        message +=
-          `${item.name} x ${item.quantity} - R${itemTotal}%0A`;
-      }
-    );
-
-    message += `%0A`;
-
-    message +=
-      `*Order Summary*%0A`;
-
-    message +=
-      `Total Selected Items: ${totalSelectedItems}%0A`;
-
-    message +=
-      `Total Idiyappam Plates: ${totalIdiyappamPlates}%0A`;
-
-    if (
-      totalPartyBiryaniPlates >
-      0
-    ) {
+    cart.forEach((item) => {
       message +=
-        `Total Party Biryani Plates: ${totalPartyBiryaniPlates}%0A`;
+        `${item.name} x ${item.quantity} - R${
+          item.price * item.quantity
+        }\n`;
+    });
+
+    message += "\n*Order Summary*\n";
+
+    message +=
+      `Total Selected Items: ${totalSelectedItems}\n`;
+
+    message +=
+      `Total Idiyappam Plates: ${idiyappamPlates}\n`;
+
+    if (partyBiryaniPlates > 0) {
+      message +=
+        `Party Biryani Plates: ${partyBiryaniPlates}\n`;
     }
 
     message +=
-      `*GRAND TOTAL: R${totalAmount}*%0A`;
-
-    message += `%0A`;
+      `*GRAND TOTAL: R${total}*\n\n`;
 
     message +=
-      `Thank you for choosing ANNAI FOODS! ❤️`;
+      "Thank you for choosing ANNAI FOODS! ❤️";
 
-    return message;
+    return encodeURIComponent(message);
   }
 
-  // ====================================================
-  // SUBMIT
-  // ====================================================
-
-  async function handleSubmit(
+  async function submitOrder(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    setErrorMessage("");
-    setSuccessMessage("");
+    setError("");
+    setSuccess("");
 
-    const validationError =
-      validateOrder();
+    const validationError = validate();
 
-    if (
-      validationError
-    ) {
-      setErrorMessage(
-        validationError
-      );
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -608,17 +456,10 @@ export default function Home() {
 
     try {
       let orderNumber =
-        generateOrderNumber();
+        makeOrderNumber();
 
-      for (
-        let attempt = 0;
-        attempt < 10;
-        attempt++
-      ) {
-        const {
-          data:
-            existingOrder,
-        } =
+      for (let i = 0; i < 10; i++) {
+        const { data } =
           await supabase
             .from("orders")
             .select("id")
@@ -628,38 +469,22 @@ export default function Home() {
             )
             .maybeSingle();
 
-        if (
-          !existingOrder
-        ) {
-          break;
-        }
+        if (!data) break;
 
         orderNumber =
-          generateOrderNumber();
+          makeOrderNumber();
       }
 
-      const orderItems =
-        cartItems.map(
-          (item) => ({
-            name:
-              item.name,
-            price:
-              item.price,
-            quantity:
-              item.quantity,
-            total:
-              item.price *
-              item.quantity,
-            type:
-              item.type ||
-              "other",
-          })
-        );
+      const items = cart.map((item) => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        total:
+          item.price * item.quantity,
+        type: item.type || "other",
+      }));
 
-      const {
-        error:
-          insertError,
-      } =
+      const { error: dbError } =
         await supabase
           .from("orders")
           .insert({
@@ -669,54 +494,47 @@ export default function Home() {
               customerName.trim(),
             customer_phone:
               customerPhone,
-            items:
-              orderItems,
-            total:
-              totalAmount,
+            items,
+            total,
             idiyappam_plates:
-              totalIdiyappamPlates,
+              idiyappamPlates,
             collection_date:
               collectionDate,
             collection_method:
               collectionMethod,
           });
 
-      if (
-        insertError
-      ) {
-        console.error(
-          insertError
-        );
-
+      if (dbError) {
+        console.error(dbError);
         throw new Error(
           "Your order could not be saved. Please try again."
         );
       }
 
-      const whatsappMessage =
-        createWhatsAppMessage(
+      const message =
+        makeWhatsAppMessage(
           orderNumber
         );
 
-      const whatsappUrls =
+      const links =
         WHATSAPP_NUMBERS.map(
           (number) =>
-            `https://wa.me/${number}?text=${whatsappMessage}`
+            `https://wa.me/${number}?text=${message}`
         );
 
-      setSuccessMessage(
+      setSuccess(
         `Order #${orderNumber} has been submitted successfully.`
       );
 
       window.open(
-        whatsappUrls[0],
+        links[0],
         "_blank",
         "noopener,noreferrer"
       );
 
       setTimeout(() => {
         window.open(
-          whatsappUrls[1],
+          links[1],
           "_blank",
           "noopener,noreferrer"
         );
@@ -725,23 +543,18 @@ export default function Home() {
       setCustomerName("");
       setCustomerPhone("");
       setQuantities({});
-
       setCollectionMethod(
         "Home collection"
       );
-
       setCollectionDate(
         getMinimumCollectionDate()
       );
+    } catch (err) {
+      console.error(err);
 
-    } catch (error) {
-      console.error(
-        error
-      );
-
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
+      setError(
+        err instanceof Error
+          ? err.message
           : "Something went wrong while submitting your order."
       );
     } finally {
@@ -749,305 +562,221 @@ export default function Home() {
     }
   }
 
-  // ====================================================
-  // MENU SECTION
-  // ====================================================
-
-  function renderMenuSection(
-    title: string,
-    items: MenuItem[],
-    note?: string
-  ) {
+  function MenuSection({
+    title,
+    items,
+    note,
+  }: {
+    title: string;
+    items: MenuItem[];
+    note?: string;
+  }) {
     return (
-      <section className="mb-7 rounded-[22px] bg-white px-7 py-7 shadow-[0_4px_18px_rgba(0,0,0,0.08)]">
-
-        <h2 className="mb-5 text-[27px] font-extrabold uppercase tracking-wide text-[#91420f]">
+      <section className="mb-7 rounded-[24px] bg-white px-8 py-7 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+        <h2 className="mb-6 text-[28px] font-extrabold uppercase leading-tight text-[#9a4514]">
           {title}
         </h2>
 
         {note && (
-          <p className="mb-5 text-[18px] leading-7 text-gray-600">
+          <p className="mb-6 text-[18px] leading-7 text-gray-600">
             {note}
           </p>
         )}
 
-        <div>
-          {items.map(
-            (item, index) => {
-              const quantity =
-                quantities[
-                  item.name
-                ] || 0;
+        {items.map((item, index) => {
+          const quantity =
+            quantities[item.id] || 0;
 
-              return (
-                <div
-                  key={
-                    item.name
+          return (
+            <div
+              key={item.id}
+              className={`flex items-center justify-between gap-4 py-6 ${
+                index !== items.length - 1
+                  ? "border-b border-gray-200"
+                  : ""
+              }`}
+            >
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[21px] font-bold leading-7 text-gray-900">
+                  {item.name}
+                </h3>
+
+                {item.description && (
+                  <p className="mt-2 text-[18px] leading-6 text-gray-600">
+                    {item.description}
+                  </p>
+                )}
+
+                <p className="mt-3 text-[21px] font-extrabold text-[#9a4514]">
+                  R{item.price}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    decrease(item.id)
                   }
-                  className={`flex items-center justify-between gap-4 py-5 ${
-                    index <
-                    items.length -
-                      1
-                      ? "border-b border-gray-200"
-                      : ""
-                  }`}
+                  className="flex h-[74px] w-[66px] items-center justify-center rounded-[14px] bg-[#9a4514] text-[32px] font-bold text-white"
                 >
+                  −
+                </button>
 
-                  <div className="min-w-0 flex-1 pr-2">
+                <span className="w-[22px] text-center text-[22px] font-semibold text-gray-900">
+                  {quantity}
+                </span>
 
-                    <h3 className="text-[20px] font-bold leading-7 text-gray-900">
-                      {item.name}
-                    </h3>
-
-                    {item.description && (
-                      <p className="mt-1 text-[17px] leading-6 text-gray-500">
-                        {item.description}
-                      </p>
-                    )}
-
-                    <p className="mt-2 text-[20px] font-extrabold text-[#91420f]">
-                      R{item.price}
-                    </p>
-
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-3">
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        decreaseQuantity(
-                          item.name
-                        )
-                      }
-                      disabled={
-                        quantity ===
-                        0
-                      }
-                      className="flex h-[56px] w-[56px] items-center justify-center rounded-[13px] bg-[#91420f] text-[28px] font-bold text-white disabled:opacity-50"
-                    >
-                      −
-                    </button>
-
-                    <span className="w-[28px] text-center text-[20px] font-semibold text-gray-800">
-                      {quantity}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        increaseQuantity(
-                          item.name
-                        )
-                      }
-                      className="flex h-[56px] w-[56px] items-center justify-center rounded-[13px] bg-[#91420f] text-[28px] font-bold text-white"
-                    >
-                      +
-                    </button>
-
-                  </div>
-
-                </div>
-              );
-            }
-          )}
-        </div>
-
+                <button
+                  type="button"
+                  onClick={() =>
+                    increase(item.id)
+                  }
+                  className="flex h-[74px] w-[66px] items-center justify-center rounded-[14px] bg-[#9a4514] text-[32px] font-bold text-white"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </section>
     );
   }
 
-  // ====================================================
-  // MENU GROUPS
-  // ====================================================
-
-  const regularIdiyappam =
+  const idiyappamItems =
     MENU.filter(
       (item) =>
-        item.type ===
-        "idiyappam"
+        item.type === "idiyappam"
     );
 
   const kothuItems =
-    MENU.filter(
-      (item) =>
-        item.name.includes(
-          "Kothu"
-        )
+    MENU.filter((item) =>
+      item.name.includes("Kothu")
     );
 
   const gravyItems =
-    MENU.filter(
-      (item) =>
-        [
-          "Lamb Kurma / Gravy",
-          "Chicken Kurma / Gravy",
-          "Egg Kurma",
-          "Veg White Kurma",
-          "Attukal Paya",
-        ].includes(
-          item.name
-        )
+    MENU.filter((item) =>
+      [
+        "Lamb Kurma / Gravy",
+        "Chicken Kurma / Gravy",
+        "Egg Kurma",
+        "Veg White Kurma",
+        "Attukal Paya",
+      ].includes(item.name)
     );
 
   const comboItems =
     MENU.filter(
       (item) =>
-        item.type ===
-        "combo"
+        item.type === "combo"
     );
 
   const sideItems =
     MENU.filter(
       (item) =>
-        item.name ===
-        "Coconut Milk"
+        item.id === "coconut-milk"
     );
 
   const partyItems =
     MENU.filter(
       (item) =>
-        item.type ===
-        "party"
+        item.type === "party"
     );
 
-  // ====================================================
-  // RENDER
-  // ====================================================
-
   return (
-    <main className="min-h-screen bg-[#fffaf3] px-4 py-5">
-
-      <div className="mx-auto w-full max-w-[700px]">
+    <main className="min-h-screen bg-[#fff8ed] px-4 py-6">
+      <div className="mx-auto w-full max-w-[720px]">
 
         {/* HEADER */}
 
-        <div className="mb-6 rounded-[22px] bg-white px-7 py-7 shadow-[0_4px_18px_rgba(0,0,0,0.08)]">
-
-          <h1 className="text-[32px] font-extrabold tracking-wide text-[#91420f]">
+        <div className="mb-7 rounded-[24px] bg-white px-8 py-7 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+          <h1 className="text-[34px] font-extrabold text-gray-900">
             ANNAI FOODS
           </h1>
 
-          <p className="mt-2 text-[19px] font-semibold text-gray-800">
+          <p className="mt-4 text-[19px] text-gray-500">
             Fresh Homemade Idiyappam ❤️
           </p>
 
-          <p className="mt-1 text-[17px] text-gray-600">
+          <p className="mt-3 text-[18px] text-gray-500">
             Soft • Fresh • Healthy • Delicious
           </p>
 
-          <p className="mt-3 text-[16px] text-gray-600">
+          <p className="mt-4 text-[18px] text-gray-500">
             Fresh Homemade Idiyappam – Made with Love ❤️
           </p>
-
         </div>
 
-        <form
-          onSubmit={
-            handleSubmit
-          }
-        >
+        <form onSubmit={submitOrder}>
 
-          {/* REGULAR MENU */}
+          <MenuSection
+            title="IDYAPPAM"
+            items={idiyappamItems}
+          />
 
-          {renderMenuSection(
-            "IDYAPPAM",
-            regularIdiyappam
-          )}
+          <MenuSection
+            title="KOTHU"
+            items={kothuItems}
+          />
 
-          {/* KOTHU */}
+          <MenuSection
+            title="GRAVY & KURMA"
+            items={gravyItems}
+          />
 
-          {renderMenuSection(
-            "KOTHU",
-            kothuItems
-          )}
+          <MenuSection
+            title="COMBOS"
+            items={comboItems}
+          />
 
-          {/* GRAVY & KURMA */}
+          <MenuSection
+            title="SIDES"
+            items={sideItems}
+          />
 
-          {renderMenuSection(
-            "GRAVY & KURMA",
-            gravyItems
-          )}
-
-          {/* COMBOS */}
-
-          {renderMenuSection(
-            "COMBOS",
-            comboItems
-          )}
-
-          {/* SIDES */}
-
-          {renderMenuSection(
-            "SIDES",
-            sideItems
-          )}
-
-          {/* PARTY MENU */}
-
-          {renderMenuSection(
-            "PARTY MENU – CHENNAI STYLE DUM BIRYANI",
-            partyItems,
-            "Minimum 5 plates. You can mix Lamb and Chicken Biryani."
-          )}
+          <MenuSection
+            title="PARTY MENU – CHENNAI STYLE DUM BIRYANI"
+            items={partyItems}
+            note="Minimum 5 plates. You can mix Lamb and Chicken Biryani."
+          />
 
           {/* ORDER SUMMARY */}
 
-          <section className="mb-7 rounded-[22px] bg-white px-7 py-7 shadow-[0_4px_18px_rgba(0,0,0,0.08)]">
-
-            <h2 className="mb-5 text-[27px] font-extrabold uppercase tracking-wide text-[#91420f]">
+          <section className="mb-7 rounded-[24px] bg-white px-8 py-7 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+            <h2 className="mb-6 text-[28px] font-extrabold text-[#9a4514]">
               ORDER SUMMARY
             </h2>
 
-            {cartItems.length ===
-            0 ? (
-
-              <p className="text-[17px] text-gray-500">
+            {cart.length === 0 ? (
+              <p className="text-[18px] text-gray-500">
                 No items selected.
               </p>
-
             ) : (
+              <>
+                {cart.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex justify-between border-b border-gray-200 py-3 text-[17px]"
+                  >
+                    <span>
+                      {item.name} ×{" "}
+                      {item.quantity}
+                    </span>
 
-              <div>
+                    <strong>
+                      R
+                      {item.price *
+                        item.quantity}
+                    </strong>
+                  </div>
+                ))}
 
-                {cartItems.map(
-                  (item) => (
-                    <div
-                      key={
-                        item.name
-                      }
-                      className="flex justify-between gap-4 border-b border-gray-200 py-3"
-                    >
-
-                      <div>
-
-                        <p className="font-bold text-gray-900">
-                          {item.name}
-                        </p>
-
-                        <p className="text-sm text-gray-500">
-                          {item.quantity} × R{item.price}
-                        </p>
-
-                      </div>
-
-                      <p className="font-bold text-gray-900">
-                        R
-                        {item.quantity *
-                          item.price}
-                      </p>
-
-                    </div>
-                  )
-                )}
-
-                <div className="mt-5 space-y-2 text-[17px]">
-
+                <div className="mt-5 space-y-3 text-[18px]">
                   <div className="flex justify-between">
                     <span>
                       Total Selected Items
                     </span>
-
                     <strong>
                       {totalSelectedItems}
                     </strong>
@@ -1057,264 +786,186 @@ export default function Home() {
                     <span>
                       Total Idiyappam Plates
                     </span>
-
                     <strong>
-                      {totalIdiyappamPlates}
+                      {idiyappamPlates}
                     </strong>
                   </div>
 
-                  {totalPartyBiryaniPlates >
+                  {partyBiryaniPlates >
                     0 && (
                     <div className="flex justify-between">
-
                       <span>
                         Party Biryani Plates
                       </span>
-
                       <strong>
-                        {totalPartyBiryaniPlates}
+                        {partyBiryaniPlates}
                       </strong>
-
                     </div>
                   )}
 
-                  <div className="mt-4 flex justify-between border-t-2 border-gray-200 pt-4 text-[22px]">
-
-                    <strong>
+                  <div className="mt-5 flex justify-between border-t border-gray-200 pt-5 text-[23px] font-extrabold">
+                    <span>
                       GRAND TOTAL
-                    </strong>
+                    </span>
 
-                    <strong className="text-[#91420f]">
-                      R{totalAmount}
-                    </strong>
-
+                    <span className="text-[#9a4514]">
+                      R{total}
+                    </span>
                   </div>
-
                 </div>
-
-              </div>
-
+              </>
             )}
-
           </section>
 
-          {/* COLLECTION DETAILS */}
+          {/* COLLECTION */}
 
-          <section className="mb-7 rounded-[22px] bg-white px-7 py-7 shadow-[0_4px_18px_rgba(0,0,0,0.08)]">
-
-            <h2 className="mb-5 text-[27px] font-extrabold text-[#91420f]">
+          <section className="mb-7 rounded-[24px] bg-white px-8 py-7 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+            <h2 className="mb-6 text-[28px] font-extrabold text-[#9a4514]">
               COLLECTION DETAILS
             </h2>
 
+            <label className="mb-3 block text-[19px] font-bold">
+              Collection Date
+            </label>
+
+            <input
+              type="date"
+              min={getMinimumCollectionDate()}
+              value={collectionDate}
+              onChange={(e) =>
+                setCollectionDate(
+                  e.target.value
+                )
+              }
+              className="mb-7 w-full rounded-[14px] border border-gray-300 px-5 py-4 text-[18px]"
+            />
+
+            <h3 className="mb-5 text-[20px] font-bold">
+              Collection Method
+            </h3>
+
             <div className="space-y-6">
 
-              {/* COLLECTION DATE */}
-
-              <div>
-
-                <label className="mb-2 block text-[19px] font-bold text-gray-900">
-                  Collection Date
-                </label>
-
+              <label className="flex cursor-pointer items-start gap-4">
                 <input
-                  type="date"
-                  min={
-                    getMinimumCollectionDate()
+                  type="radio"
+                  name="collectionMethod"
+                  checked={
+                    collectionMethod ===
+                    "Home collection"
                   }
-                  value={
-                    collectionDate
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setCollectionDate(
-                      event
-                        .target
-                        .value
+                  onChange={() =>
+                    setCollectionMethod(
+                      "Home collection"
                     )
                   }
-                  className="w-full rounded-[14px] border-2 border-gray-300 bg-white px-5 py-4 text-[18px] outline-none focus:border-[#91420f]"
+                  className="mt-1 h-7 w-7"
                 />
 
-                <p className="mt-2 text-[15px] text-gray-500">
-                  Same-day collection is available before 12:00 PM Johannesburg time.
-                </p>
+                <div>
+                  <p className="text-[20px] font-bold">
+                    Home collection
+                  </p>
 
-              </div>
-
-              {/* COLLECTION METHOD */}
-
-              <div>
-
-                <h3 className="mb-4 text-[20px] font-bold text-gray-900">
-                  Collection Method
-                </h3>
-
-                <div className="space-y-5">
-
-                  <label className="flex cursor-pointer items-start gap-4">
-
-                    <input
-                      type="radio"
-                      name="collectionMethod"
-                      value="Home collection"
-                      checked={
-                        collectionMethod ===
-                        "Home collection"
-                      }
-                      onChange={() =>
-                        setCollectionMethod(
-                          "Home collection"
-                        )
-                      }
-                      className="mt-1 h-7 w-7 accent-[#91420f]"
-                    />
-
-                    <div>
-
-                      <p className="text-[20px] font-bold text-gray-900">
-                        Home collection
-                      </p>
-
-                      <p className="mt-1 text-[16px] leading-6 text-gray-600">
-                        {COLLECTION_ADDRESS}
-                      </p>
-
-                    </div>
-
-                  </label>
-
-                  <label className="flex cursor-pointer items-start gap-4">
-
-                    <input
-                      type="radio"
-                      name="collectionMethod"
-                      value="Uber pickup"
-                      checked={
-                        collectionMethod ===
-                        "Uber pickup"
-                      }
-                      onChange={() =>
-                        setCollectionMethod(
-                          "Uber pickup"
-                        )
-                      }
-                      className="mt-1 h-7 w-7 accent-[#91420f]"
-                    />
-
-                    <div>
-
-                      <p className="text-[20px] font-bold text-gray-900">
-                        Uber pickup
-                      </p>
-
-                      <p className="mt-2 text-[16px] leading-6 text-gray-600">
-                        For Uber pickup, the customer must arrange the Uber driver to collect from the address above. Uber charges are the customer's responsibility.
-                      </p>
-
-                    </div>
-
-                  </label>
-
+                  <p className="mt-2 text-[18px] leading-7 text-gray-600">
+                    {COLLECTION_ADDRESS}
+                  </p>
                 </div>
+              </label>
 
-              </div>
+              <label className="flex cursor-pointer items-start gap-4">
+                <input
+                  type="radio"
+                  name="collectionMethod"
+                  checked={
+                    collectionMethod ===
+                    "Uber pickup"
+                  }
+                  onChange={() =>
+                    setCollectionMethod(
+                      "Uber pickup"
+                    )
+                  }
+                  className="mt-1 h-7 w-7"
+                />
+
+                <div>
+                  <p className="text-[20px] font-bold">
+                    Uber pickup
+                  </p>
+
+                  <p className="mt-2 text-[18px] leading-7 text-gray-600">
+                    For Uber pickup, the customer must arrange the Uber driver to collect from the address above. Uber charges are the customer's responsibility.
+                  </p>
+                </div>
+              </label>
 
             </div>
-
           </section>
 
           {/* CUSTOMER DETAILS */}
 
-          <section className="mb-7 rounded-[22px] bg-white px-7 py-7 shadow-[0_4px_18px_rgba(0,0,0,0.08)]">
-
-            <h2 className="mb-6 text-[29px] font-extrabold tracking-wide text-[#91420f]">
+          <section className="mb-7 rounded-[24px] bg-white px-8 py-7 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+            <h2 className="mb-7 text-[28px] font-extrabold text-[#9a4514]">
               CUSTOMER DETAILS
             </h2>
 
-            <div className="space-y-6">
+            <label className="mb-3 block text-[19px] font-bold">
+              Full Name
+            </label>
 
-              {/* NAME */}
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) =>
+                setCustomerName(
+                  e.target.value
+                )
+              }
+              placeholder="Enter your full name"
+              className="mb-7 w-full rounded-[14px] border border-gray-300 px-5 py-4 text-[20px]"
+            />
 
-              <div>
+            <label className="mb-3 block text-[19px] font-bold">
+              WhatsApp / Contact Number
+            </label>
 
-                <label className="mb-2 block text-[19px] font-bold text-gray-900">
-                  Full Name
-                </label>
-
-                <input
-                  type="text"
-                  value={
-                    customerName
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setCustomerName(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  placeholder="Enter your full name"
-                  className="w-full rounded-[14px] border-2 border-gray-300 bg-white px-5 py-4 text-[20px] outline-none focus:border-[#91420f]"
-                />
-
-              </div>
-
-              {/* PHONE */}
-
-              <div>
-
-                <label className="mb-2 block text-[19px] font-bold text-gray-900">
-                  WhatsApp / Contact Number
-                </label>
-
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={
-                    customerPhone
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    handlePhoneChange(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  placeholder="10-digit number"
-                  className="w-full rounded-[14px] border-2 border-gray-300 bg-white px-5 py-4 text-[20px] outline-none focus:border-[#91420f]"
-                />
-
-              </div>
-
-            </div>
-
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={customerPhone}
+              onChange={(e) =>
+                changePhone(
+                  e.target.value
+                )
+              }
+              placeholder="10-digit number"
+              className="w-full rounded-[14px] border border-gray-300 px-5 py-4 text-[20px]"
+            />
           </section>
 
-          {/* MINIMUM ORDER WARNING */}
+          {/* ERROR */}
 
-          {errorMessage && (
-            <div className="mb-5 rounded-[16px] bg-[#fde9e9] px-5 py-5 text-[18px] leading-7 text-[#9b2929]">
-              {errorMessage}
-            </div>
-          )}
-
-          {!errorMessage && (
-            <div className="mb-5 rounded-[16px] bg-[#fde9e9] px-5 py-5 text-[18px] leading-7 text-[#9b2929]">
-              The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.
+          {error && (
+            <div className="mb-6 rounded-[18px] bg-[#fde8e8] px-6 py-5 text-[20px] leading-7 text-[#922b2b]">
+              {error}
             </div>
           )}
 
           {/* SUCCESS */}
 
-          {successMessage && (
-            <div className="mb-5 rounded-[16px] bg-green-100 px-5 py-5 text-[17px] font-semibold text-green-800">
-              {successMessage}
+          {success && (
+            <div className="mb-6 rounded-[18px] bg-green-100 px-6 py-5 text-[18px] font-semibold text-green-800">
+              {success}
+            </div>
+          )}
+
+          {/* MINIMUM ORDER */}
+
+          {!error && (
+            <div className="mb-6 rounded-[18px] bg-[#fde8e8] px-6 py-5 text-[20px] leading-7 text-[#922b2b]">
+              The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.
             </div>
           )}
 
@@ -1322,10 +973,8 @@ export default function Home() {
 
           <button
             type="submit"
-            disabled={
-              loading
-            }
-            className="mb-8 w-full rounded-[15px] bg-[#91420f] px-6 py-5 text-[22px] font-extrabold text-white shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading}
+            className="mb-10 w-full rounded-[15px] bg-[#9a4514] px-6 py-5 text-[23px] font-extrabold text-white disabled:opacity-60"
           >
             {loading
               ? "Submitting Order..."
@@ -1333,9 +982,7 @@ export default function Home() {
           </button>
 
         </form>
-
       </div>
-
     </main>
   );
 }
