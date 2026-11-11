@@ -1,112 +1,163 @@
-
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ==========================================
+// ======================================================
+// SUPABASE
+// ======================================================
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabasePublishableKey =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
+const supabase = createClient(
+  supabaseUrl,
+  supabasePublishableKey
+);
+
+// ======================================================
 // TYPES
-// ==========================================
+// ======================================================
 
 type MenuItem = {
   name: string;
   price: number;
   type?: "idiyappam" | "combo" | "party";
   description?: string;
-  unit?: string;
 };
 
-type CollectionMethod = "Home collection" | "Uber pickup";
-
-type OrderItem = {
-  name: string;
+type CartItem = MenuItem & {
   quantity: number;
-  price: number;
-  subtotal: number;
 };
 
-type CustomerReview = {
-  id: string;
-  display_name: string | null;
-  rating: number;
-  review: string;
-  created_at: string;
-};
+// ======================================================
+// MENU
+// ======================================================
 
-// ==========================================
-// MENU CATEGORIES
-// ==========================================
-
-const IDIYAPPAM_MENU: MenuItem[] = [
-  { name: "Rice Idiyappam", price: 30, type: "idiyappam" },
-  { name: "Ragi Idiyappam", price: 35, type: "idiyappam" },
-  { name: "Wheat Idiyappam", price: 35, type: "idiyappam" },
+const MENU: MenuItem[] = [
+  // -------------------------------
+  // REGULAR IDIYAPPAM
+  // -------------------------------
+  {
+    name: "Rice Idiyappam",
+    price: 30,
+    type: "idiyappam",
+    description: "Fresh homemade rice idiyappam",
+  },
+  {
+    name: "Ragi Idiyappam",
+    price: 35,
+    type: "idiyappam",
+    description: "Healthy homemade ragi idiyappam",
+  },
+  {
+    name: "Wheat Idiyappam",
+    price: 35,
+    type: "idiyappam",
+    description: "Fresh homemade wheat idiyappam",
+  },
   {
     name: "Sweet Rice Idiyappam",
     price: 45,
     type: "idiyappam",
-    unit: "per portion",
+    description: "Sweet rice idiyappam",
   },
   {
     name: "Sweet Ragi Idiyappam",
     price: 45,
     type: "idiyappam",
-    unit: "per portion",
+    description: "Sweet ragi idiyappam",
   },
-  { name: "Egg Idiyappam Kothu", price: 80 },
-  { name: "Chicken Idiyappam Kothu", price: 100 },
-];
 
-const GRAVY_MENU: MenuItem[] = [
-  { name: "Lamb Kurma / Gravy", price: 140 },
-  { name: "Chicken Kurma / Gravy", price: 100 },
-  { name: "Egg Kurma", price: 90 },
-  { name: "Veg White Kurma", price: 80 },
-  { name: "Attukal Paya", price: 125, unit: "per portion" },
-];
+  // -------------------------------
+  // KOTHU
+  // -------------------------------
+  {
+    name: "Egg Idiyappam Kothu",
+    price: 80,
+    description: "Egg idiyappam kothu",
+  },
+  {
+    name: "Chicken Idiyappam Kothu",
+    price: 100,
+    description: "Chicken idiyappam kothu",
+  },
 
-const COMBO_MENU: MenuItem[] = [
+  // -------------------------------
+  // GRAVY & KURMA
+  // -------------------------------
+  {
+    name: "Lamb Kurma / Gravy",
+    price: 140,
+    description: "Rich homemade lamb kurma / gravy",
+  },
+  {
+    name: "Chicken Kurma / Gravy",
+    price: 100,
+    description: "Homemade chicken kurma / gravy",
+  },
+  {
+    name: "Egg Kurma",
+    price: 90,
+    description: "Homemade egg kurma",
+  },
+  {
+    name: "Veg White Kurma",
+    price: 80,
+    description: "Creamy vegetarian white kurma",
+  },
+  {
+    name: "Attukal Paya",
+    price: 125,
+    description: "Traditional homemade attukal paya",
+  },
+
+  // -------------------------------
+  // COMBOS
+  // -------------------------------
   {
     name: "Combo 1",
     price: 140,
     type: "combo",
-    description: "2 plates Idiyappam + 1 portion Chicken Gravy",
+    description: "2 plates Idiyappam + Chicken Gravy",
   },
   {
     name: "Combo 2",
     price: 125,
     type: "combo",
-    description: "2 plates Idiyappam + Veg White Kurma + Coconut Milk",
+    description: "2 plates Idiyappam + Veg White Kurma",
   },
-];
 
-const SIDES_MENU: MenuItem[] = [
-  { name: "Coconut Milk", price: 50 },
-];
+  // -------------------------------
+  // SIDES
+  // -------------------------------
+  {
+    name: "Coconut Milk",
+    price: 50,
+    description: "Fresh coconut milk",
+  },
 
-const PARTY_MENU: MenuItem[] = [
+  // -------------------------------
+  // PARTY MENU
+  // -------------------------------
   {
     name: "Chennai Style Lamb Dum Biryani with Egg",
     price: 140,
     type: "party",
-    unit: "per plate",
+    description: "Chennai-style lamb dum biryani with egg",
   },
   {
     name: "Chennai Style Chicken Dum Biryani with Egg",
     price: 110,
     type: "party",
-    unit: "per plate",
+    description: "Chennai-style chicken dum biryani with egg",
   },
 ];
 
-const MENU: MenuItem[] = [
-  ...IDIYAPPAM_MENU,
-  ...GRAVY_MENU,
-  ...COMBO_MENU,
-  ...SIDES_MENU,
-];
-
-const ALL_MENU: MenuItem[] = [...MENU, ...PARTY_MENU];
+// ======================================================
+// CONSTANTS
+// ======================================================
 
 const COLLECTION_ADDRESS =
   "Unit 23, Fairview Crescent, Wood County Estate, Midrand, Johannesburg";
@@ -116,515 +167,404 @@ const WHATSAPP_NUMBERS = [
   "27607104011",
 ];
 
-// ==========================================
-// SUPABASE CONFIGURATION
-// ==========================================
+// ======================================================
+// JOHANNESBURG DATE HELPERS
+// ======================================================
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-// ==========================================
-// DATE HELPERS
-// ==========================================
-
-function johannesburgParts(date = new Date()): Record<string, string> {
-  const parts = new Intl.DateTimeFormat("en-GB", {
+function getJohannesburgDateParts() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
 
-  const result: Record<string, string> = {};
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)?.value || "";
 
-  parts.forEach((part) => {
-    if (part.type !== "literal") {
-      result[part.type] = part.value;
-    }
-  });
-
-  return result;
+  return {
+    year: Number(get("year")),
+    month: Number(get("month")),
+    day: Number(get("day")),
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+    second: Number(get("second")),
+  };
 }
 
-function minimumCollectionDate(): string {
-  const parts = johannesburgParts();
+function formatDateForInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
-  const year = Number(parts.year);
-  const month = Number(parts.month);
-  const day = Number(parts.day);
-  const hour = Number(parts.hour);
+  return `${year}-${month}-${day}`;
+}
 
-  const date = new Date(Date.UTC(year, month - 1, day));
+function getMinimumCollectionDate() {
+  const now = getJohannesburgDateParts();
 
-  if (hour >= 12) {
-    date.setUTCDate(date.getUTCDate() + 1);
+  const today = new Date(now.year, now.month - 1, now.day);
+
+  // Before 12:00 PM Johannesburg time:
+  // today is allowed.
+  //
+  // At/after 12:00 PM:
+  // today is closed and tomorrow is the earliest date.
+  if (now.hour < 12) {
+    return formatDateForInput(today);
   }
 
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, "0"),
-    String(date.getUTCDate()).padStart(2, "0"),
-  ].join("-");
+  today.setDate(today.getDate() + 1);
+
+  return formatDateForInput(today);
 }
 
-function isValidCalendarDate(value: string): boolean {
-  if (!value) return false;
+function formatDisplayDate(dateString: string) {
+  if (!dateString) return "";
 
-  const parts = value.split("-").map(Number);
-
-  if (parts.length !== 3) return false;
-
-  const [year, month, day] = parts;
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
-
-function formatDate(value: string): string {
-  if (!value) return "";
-
-  const [year, month, day] = value.split("-");
+  const [year, month, day] = dateString.split("-");
 
   return `${day}/${month}/${year}`;
 }
 
-// ==========================================
-// UNIQUE FOUR-DIGIT ORDER NUMBER
-// ==========================================
-
-function generateOrderNumber(): string {
-  const randomNumber = new Uint32Array(1);
-
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(randomNumber);
-
-    return String(1000 + (randomNumber[0] % 9000));
-  }
-
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
-// ==========================================
-// MAIN PAGE
-// ==========================================
+// ======================================================
+// COMPONENT
+// ======================================================
 
 export default function Home() {
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) {
-      return null;
-    }
-
-    return createClient(supabaseUrl, supabaseKey);
-  }, []);
-
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [customer, setCustomer] = useState("");
-  const [phone, setPhone] = useState("");
-
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [collectionDate, setCollectionDate] = useState(
-    minimumCollectionDate()
+    getMinimumCollectionDate()
   );
+  const [collectionMethod, setCollectionMethod] = useState<
+    "Home collection" | "Uber pickup"
+  >("Home collection");
 
-  const [collectionMethod, setCollectionMethod] =
-    useState<CollectionMethod>("Home collection");
-
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [submittedOrderNumber, setSubmittedOrderNumber] = useState("");
-  const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // ==========================================
-  // CUSTOMER REVIEW STATE
-  // ==========================================
+  // ====================================================
+  // CART
+  // ====================================================
 
-  const [reviewName, setReviewName] = useState("");
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewText, setReviewText] = useState("");
-  const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewMessage, setReviewMessage] = useState("");
-  const [reviewError, setReviewError] = useState("");
-
-  const [approvedReviews, setApprovedReviews] =
-    useState<CustomerReview[]>([]);
-
-  // ==========================================
-  // LOAD APPROVED CUSTOMER REVIEWS
-  // ==========================================
-
-  useEffect(() => {
-    if (!supabase) return;
-
-    let active = true;
-
-    async function loadApprovedReviews() {
-      const { data, error } = await supabase!
-        .from("customer_reviews")
-        .select("id, display_name, rating, review, created_at")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (!active) return;
-
-      if (error) {
-        console.error("Unable to load reviews:", error);
-        return;
-      }
-
-      setApprovedReviews((data || []) as CustomerReview[]);
-    }
-
-    loadApprovedReviews();
-
-    return () => {
-      active = false;
-    };
-  }, [supabase]);
-
-  // ==========================================
-  // SUBMIT CUSTOMER REVIEW
-  // ==========================================
-
-  async function submitReview(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    setReviewError("");
-    setReviewMessage("");
-
-    if (!supabase) {
-      setReviewError("The review system is currently unavailable.");
-      return;
-    }
-
-    if (!reviewName.trim()) {
-      setReviewError("Please enter your name.");
-      return;
-    }
-
-    if (reviewRating < 1 || reviewRating > 5) {
-      setReviewError("Please select a star rating.");
-      return;
-    }
-
-    if (reviewText.trim().length < 5) {
-      setReviewError("Please write at least 5 characters in your review.");
-      return;
-    }
-
-    if (reviewText.trim().length > 1000) {
-      setReviewError("Your review must be 1000 characters or less.");
-      return;
-    }
-
-    setReviewLoading(true);
-
-    try {
-      const { error: insertError } = await supabase
-        .from("customer_reviews")
-        .insert({
-          display_name: reviewName.trim(),
-          rating: reviewRating,
-          review: reviewText.trim(),
-          status: "pending",
-        });
-
-      if (insertError) {
-        console.error("Review submission error:", insertError);
-        throw new Error("Unable to submit your review. Please try again.");
-      }
-
-      setReviewMessage(
-        "Thank you for sharing your experience! Your review has been submitted and will appear publicly after Annai Foods approves it."
-      );
-
-      setReviewName("");
-      setReviewRating(5);
-      setReviewText("");
-    } catch (err: unknown) {
-      setReviewError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again."
-      );
-    } finally {
-      setReviewLoading(false);
-    }
-  }
-
-  // ==========================================
-  // CART CALCULATIONS
-  // ==========================================
-
-  const selectedItems = useMemo(() => {
-    return ALL_MENU
-      .filter((item) => Number(quantities[item.name] || 0) > 0)
-      .map((item) => {
-        const quantity = Number(quantities[item.name]);
-
-        return {
-          ...item,
-          quantity,
-          subtotal: item.price * quantity,
-        };
-      });
+  const cartItems: CartItem[] = useMemo(() => {
+    return MENU.filter((item) => (quantities[item.name] || 0) > 0).map(
+      (item) => ({
+        ...item,
+        quantity: quantities[item.name],
+      })
+    );
   }, [quantities]);
 
-  const selectedRegularItems = selectedItems.filter(
-    (item) => item.type !== "party"
-  );
+  // ====================================================
+  // TOTALS
+  // ====================================================
 
-  const selectedPartyItems = selectedItems.filter(
-    (item) => item.type === "party"
-  );
+  const totalAmount = useMemo(() => {
+    return cartItems.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    );
+  }, [cartItems]);
 
-  const total = selectedItems.reduce(
-    (sum, item) => sum + item.subtotal,
-    0
-  );
+  const totalSelectedItems = useMemo(() => {
+    return cartItems.reduce((total, item) => total + item.quantity, 0);
+  }, [cartItems]);
 
-  const itemCount = selectedItems.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  );
-
-  const idiyappamPlates = selectedRegularItems.reduce(
-    (sum, item) => {
+  const totalIdiyappamPlates = useMemo(() => {
+    return cartItems.reduce((total, item) => {
       if (item.type === "idiyappam") {
-        return sum + item.quantity;
+        return total + item.quantity;
       }
 
       if (item.type === "combo") {
-        return sum + item.quantity * 2;
+        return total + item.quantity * 2;
       }
 
-      return sum;
-    },
-    0
-  );
+      return total;
+    }, 0);
+  }, [cartItems]);
 
-  const partyPlateCount = selectedPartyItems.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  );
+  const totalPartyBiryaniPlates = useMemo(() => {
+    return cartItems.reduce((total, item) => {
+      if (item.type === "party") {
+        return total + item.quantity;
+      }
 
-  // ==========================================
-  // UPDATE QUANTITY
-  // ==========================================
+      return total;
+    }, 0);
+  }, [cartItems]);
 
-  function updateQuantity(itemName: string, change: number) {
+  const hasRegularItems = useMemo(() => {
+    return cartItems.some(
+      (item) => item.type !== "party"
+    );
+  }, [cartItems]);
+
+  const hasPartyItems = useMemo(() => {
+    return cartItems.some(
+      (item) => item.type === "party"
+    );
+  }, [cartItems]);
+
+  // ====================================================
+  // QUANTITY HANDLERS
+  // ====================================================
+
+  function increaseQuantity(itemName: string) {
+    setQuantities((previous) => ({
+      ...previous,
+      [itemName]: (previous[itemName] || 0) + 1,
+    }));
+  }
+
+  function decreaseQuantity(itemName: string) {
     setQuantities((previous) => {
-      const current = Number(previous[itemName] || 0);
-      const next = Math.max(0, current + change);
+      const current = previous[itemName] || 0;
+
+      if (current <= 1) {
+        const updated = { ...previous };
+        delete updated[itemName];
+        return updated;
+      }
 
       return {
         ...previous,
-        [itemName]: next,
+        [itemName]: current - 1,
       };
     });
-
-    setSubmittedOrderNumber("");
-    setWhatsappMessage("");
-    setError("");
   }
 
-  // ==========================================
-  // VALIDATION
-  // ==========================================
+  // ====================================================
+  // PHONE HANDLER
+  // ====================================================
 
-  function validate(): string {
-    if (!supabase) {
-      return "The order system is not configured. Please contact Annai Foods.";
-    }
+  function handlePhoneChange(value: string) {
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
 
-    if (!customer.trim()) {
+    setCustomerPhone(digitsOnly);
+  }
+
+  // ====================================================
+  // ORDER VALIDATION
+  // ====================================================
+
+  function validateOrder() {
+    if (!customerName.trim()) {
       return "Please enter your name.";
     }
 
-    if (!/^[0-9]{10}$/.test(phone.trim())) {
+    if (!/^\d{10}$/.test(customerPhone)) {
       return "Please enter a valid 10-digit South African phone number.";
     }
 
-    if (selectedItems.length === 0) {
+    if (!collectionDate) {
+      return "Please select a collection date.";
+    }
+
+    const minimumDate = getMinimumCollectionDate();
+
+    if (collectionDate < minimumDate) {
+      return "The selected collection date is no longer available. Please select another date.";
+    }
+
+    if (cartItems.length === 0) {
       return "Please select at least one menu item.";
     }
 
-    if (
-      selectedRegularItems.length > 0 &&
-      idiyappamPlates < 5
-    ) {
-      return "The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.";
+    // Regular menu minimum
+    if (hasRegularItems && totalIdiyappamPlates < 5) {
+      return `Minimum order is 5 Idiyappam plates. You currently have ${totalIdiyappamPlates}.`;
     }
 
-    if (
-      selectedPartyItems.length > 0 &&
-      partyPlateCount < 5
-    ) {
-      return "The minimum biryani order is 5 plates. You can mix Lamb and Chicken Biryani.";
+    // Party menu minimum
+    if (hasPartyItems && totalPartyBiryaniPlates < 5) {
+      return `Minimum party order is 5 biryani plates. You currently have ${totalPartyBiryaniPlates}.`;
     }
 
-    if (!isValidCalendarDate(collectionDate)) {
-      return "Please select a valid collection date.";
-    }
-
-    if (collectionDate < minimumCollectionDate()) {
-      return "Please select an available collection date.";
-    }
-
-    if (
-      collectionMethod !== "Home collection" &&
-      collectionMethod !== "Uber pickup"
-    ) {
-      return "Please select a collection method.";
-    }
-
-    return "";
+    return null;
   }
 
-  // ==========================================
-  // CREATE WHATSAPP MESSAGE
-  // ==========================================
+  // ====================================================
+  // ORDER NUMBER
+  // ====================================================
 
-  function createWhatsAppMessage(orderNumber: string): string {
-    const lines: string[] = [];
+  function generateOrderNumber() {
+    return String(
+      Math.floor(1000 + Math.random() * 9000)
+    );
+  }
 
-    lines.push("ANNAI FOODS - NEW ORDER");
-    lines.push("========================");
-    lines.push(`Order Number: ${orderNumber}`);
-    lines.push("");
+  // ====================================================
+  // WHATSAPP MESSAGE
+  // ====================================================
 
-    lines.push(`Customer: ${customer.trim()}`);
-    lines.push(`Phone: ${phone.trim()}`);
-    lines.push(`Collection Date: ${formatDate(collectionDate)}`);
-    lines.push(`Collection Method: ${collectionMethod}`);
+  function createWhatsAppMessage(orderNumber: string) {
+    let message = "";
 
-    lines.push("");
-    lines.push("ORDER DETAILS");
-    lines.push("------------------------");
+    message += `*ANNAI FOODS - NEW ORDER*%0A`;
+    message += `%0A`;
+    message += `*Order Number:* ${orderNumber}%0A`;
+    message += `%0A`;
 
-    selectedItems.forEach((item) => {
-      lines.push(
-        `${item.name} x ${item.quantity} = R${item.subtotal.toFixed(2)}`
-      );
+    message += `*Customer Details*%0A`;
+    message += `Name: ${customerName.trim()}%0A`;
+    message += `Phone: ${customerPhone}%0A`;
+    message += `%0A`;
+
+    message += `*Collection Details*%0A`;
+    message += `Collection Date: ${formatDisplayDate(
+      collectionDate
+    )}%0A`;
+    message += `Collection Method: ${collectionMethod}%0A`;
+
+    if (collectionMethod === "Home collection") {
+      message += `Address: ${COLLECTION_ADDRESS}%0A`;
+    }
+
+    message += `%0A`;
+
+    message += `*Order Items*%0A`;
+
+    cartItems.forEach((item) => {
+      const itemTotal = item.price * item.quantity;
+
+      message += `${item.name} x ${item.quantity} - R${itemTotal}%0A`;
     });
 
-    lines.push("");
-    lines.push(`Total Items: ${itemCount}`);
-    lines.push(`Total Idiyappam Plates: ${idiyappamPlates}`);
+    message += `%0A`;
 
-    if (selectedPartyItems.length > 0) {
-      lines.push(`Total Biryani Plates: ${partyPlateCount}`);
+    message += `*Order Summary*%0A`;
+    message += `Total Selected Items: ${totalSelectedItems}%0A`;
+    message += `Total Idiyappam Plates: ${totalIdiyappamPlates}%0A`;
+
+    if (totalPartyBiryaniPlates > 0) {
+      message += `Total Party Biryani Plates: ${totalPartyBiryaniPlates}%0A`;
     }
 
-    lines.push("");
-    lines.push(`TOTAL AMOUNT: R${total.toFixed(2)}`);
-    lines.push("");
+    message += `*GRAND TOTAL: R${totalAmount}*%0A`;
 
-    lines.push(`Collection Address: ${COLLECTION_ADDRESS}`);
+    message += `%0A`;
+    message += `Thank you for choosing ANNAI FOODS! ❤️`;
 
-    if (collectionMethod === "Uber pickup") {
-      lines.push("");
-      lines.push(
-        "Customer will arrange an Uber driver to collect the order from the collection address. Uber charges are the customer's responsibility."
-      );
-    }
-
-    lines.push("");
-    lines.push("Thank you for ordering from Annai Foods!");
-
-    return lines.join("\n");
+    return message;
   }
 
-  // ==========================================
+  // ====================================================
   // SUBMIT ORDER
-  // ==========================================
+  // ====================================================
 
-  async function submitOrder(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setError("");
+    setErrorMessage("");
+    setSuccessMessage("");
 
-    const validationError = validate();
+    const validationError = validateOrder();
 
     if (validationError) {
-      setError(validationError);
-      return;
-    }
-
-    if (!supabase) {
-      setError("Supabase is not configured.");
+      setErrorMessage(validationError);
       return;
     }
 
     setLoading(true);
 
     try {
-      let savedOrder = false;
-      let orderNumber = "";
-      let lastError: { message: string; code?: string } | null = null;
+      let orderNumber = generateOrderNumber();
 
-      const orderItems: OrderItem[] = selectedItems.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        subtotal: item.subtotal,
-      }));
-
-      for (let attempt = 0; attempt < 30; attempt++) {
-        orderNumber = generateOrderNumber();
-
-        const { error: insertError } = await supabase
+      // Make sure the order number is unique.
+      // Retry a few times if necessary.
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const { data: existingOrder } = await supabase
           .from("orders")
-          .insert({
-            order_number: orderNumber,
-            customer_name: customer.trim(),
-            customer_phone: phone.trim(),
-            items: orderItems,
-            total_amount: total,
-            idiyappam_plates: idiyappamPlates,
-            collection_date: collectionDate,
-            collection_method: collectionMethod,
-          });
+          .select("id")
+          .eq("order_number", orderNumber)
+          .maybeSingle();
 
-        if (!insertError) {
-          savedOrder = true;
+        if (!existingOrder) {
           break;
         }
 
-        lastError = insertError;
-
-        if (insertError.code !== "23505") {
-          break;
-        }
+        orderNumber = generateOrderNumber();
       }
 
-      if (!savedOrder) {
-        console.error("Order saving error:", lastError);
+      const orderItems = cartItems.map((item) => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        total: item.price * item.quantity,
+        type: item.type || "other",
+      }));
+
+      const { error: insertError } = await supabase
+        .from("orders")
+        .insert({
+          order_number: orderNumber,
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone,
+          items: orderItems,
+          total: totalAmount,
+          idiyappam_plates: totalIdiyappamPlates,
+          collection_date: collectionDate,
+          collection_method: collectionMethod,
+        });
+
+      if (insertError) {
+        console.error("Supabase order error:", insertError);
 
         throw new Error(
-          lastError?.message ||
-          "Unable to save your order. Please try again."
+          "Your order could not be saved. Please try again."
         );
       }
 
-      const message = createWhatsAppMessage(orderNumber);
+      const whatsappMessage =
+        createWhatsAppMessage(orderNumber);
 
-      setSubmittedOrderNumber(orderNumber);
-      setWhatsappMessage(message);
+      setSuccessMessage(
+        `Order #${orderNumber} has been submitted successfully.`
+      );
 
-    } catch (err: unknown) {
-      console.error(err);
+      // Open WhatsApp notifications for BOTH Annai Foods numbers.
+      const whatsappUrls = WHATSAPP_NUMBERS.map(
+        (number) =>
+          `https://wa.me/${number}?text=${whatsappMessage}`
+      );
 
-      setError(
-        err instanceof Error
-          ? err.message
+      // Open the first WhatsApp notification.
+      window.open(
+        whatsappUrls[0],
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+      // Open the second WhatsApp notification after a short delay.
+      setTimeout(() => {
+        window.open(
+          whatsappUrls[1],
+          "_blank",
+          "noopener,noreferrer"
+        );
+      }, 800);
+
+      // Clear the form after successful submission.
+      setCustomerName("");
+      setCustomerPhone("");
+      setQuantities({});
+      setCollectionMethod("Home collection");
+      setCollectionDate(getMinimumCollectionDate());
+    } catch (error) {
+      console.error(error);
+
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
           : "Something went wrong while submitting your order."
       );
     } finally {
@@ -632,774 +572,438 @@ export default function Home() {
     }
   }
 
-  // ==========================================
-  // STYLES
-  // ==========================================
-
-  const styles = {
-    page: {
-      minHeight: "100vh",
-      background: "#fff8ef",
-      padding: "16px",
-      color: "#35251b",
-      fontFamily: "Arial, sans-serif",
-    },
-
-    container: {
-      maxWidth: "760px",
-      margin: "0 auto",
-    },
-
-    header: {
-      textAlign: "center" as const,
-      padding: "20px 10px",
-      background: "#ffffff",
-      borderRadius: "16px",
-      marginBottom: "18px",
-      boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
-    },
-
-    section: {
-      background: "#ffffff",
-      borderRadius: "14px",
-      padding: "18px",
-      marginBottom: "16px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-    },
-
-    heading: {
-      color: "#8b3f16",
-      marginTop: 0,
-      marginBottom: "14px",
-      fontSize: "20px",
-      textTransform: "uppercase" as const,
-    },
-
-    menuItem: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: "10px",
-      padding: "12px 0",
-      borderBottom: "1px solid #eee5dc",
-    },
-
-    button: {
-      border: "none",
-      background: "#8b3f16",
-      color: "#ffffff",
-      borderRadius: "8px",
-      padding: "9px 13px",
-      fontSize: "17px",
-      fontWeight: "bold",
-      cursor: "pointer",
-    },
-
-    input: {
-      width: "100%",
-      padding: "12px",
-      border: "1px solid #d8c8b8",
-      borderRadius: "8px",
-      fontSize: "16px",
-      boxSizing: "border-box" as const,
-      marginTop: "6px",
-      marginBottom: "14px",
-    },
-
-    label: {
-      display: "block",
-      fontWeight: "bold",
-      marginTop: "10px",
-    },
-  };
-
-  // ==========================================
-  // MENU DISPLAY
-  // ==========================================
-
-  function renderMenuItem(item: MenuItem) {
-    const quantity = Number(quantities[item.name] || 0);
-
-    return (
-      <div key={item.name} style={styles.menuItem}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: "bold" }}>
-            {item.name}
-          </div>
-
-          {item.description && (
-            <div
-              style={{
-                fontSize: "13px",
-                color: "#777",
-                marginTop: "3px",
-              }}
-            >
-              {item.description}
-            </div>
-          )}
-
-          <div
-            style={{
-              color: "#8b3f16",
-              fontWeight: "bold",
-              marginTop: "5px",
-            }}
-          >
-            R{item.price}
-            {item.unit
-              ? ` / ${item.unit.replace("per ", "")}`
-              : ""}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "9px",
-          }}
-        >
-          <button
-            type="button"
-            style={styles.button}
-            onClick={() => updateQuantity(item.name, -1)}
-            aria-label={`Remove one ${item.name}`}
-          >
-            −
-          </button>
-
-          <span
-            style={{
-              minWidth: "18px",
-              textAlign: "center",
-              fontWeight: "bold",
-            }}
-          >
-            {quantity}
-          </span>
-
-          <button
-            type="button"
-            style={styles.button}
-            onClick={() => updateQuantity(item.name, 1)}
-            aria-label={`Add one ${item.name}`}
-          >
-            +
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // PAGE UI
-  // ==========================================
+  // ====================================================
+  // RENDER
+  // ====================================================
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
+    <main className="min-h-screen bg-orange-50 px-4 py-6">
+      <div className="mx-auto max-w-3xl">
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
-        <header style={styles.header}>
-          <img
-            src="/annai-foods-logo.jpg"
-            alt="Annai Foods Logo"
-            style={{
-              width: "125px",
-              height: "125px",
-              objectFit: "contain",
-              marginBottom: "8px",
-            }}
-          />
-
-          <h1 style={{ color: "#8b3f16", margin: "5px 0" }}>
-            Welcome to Annai Foods
+        <div className="mb-6 rounded-2xl bg-white p-6 text-center shadow-md">
+          <h1 className="text-3xl font-extrabold tracking-wide text-orange-700">
+            ANNAI FOODS
           </h1>
 
-          <p style={{ margin: "8px 0", color: "#665346" }}>
-            Delicious homemade food, prepared with love.
+          <p className="mt-2 text-lg font-semibold text-gray-800">
+            Fresh Homemade Idiyappam ❤️
           </p>
 
-          <p style={{ fontWeight: "bold", color: "#a33c1a" }}>
-            Minimum order: 5 plates of Idiyappam
+          <p className="mt-1 text-sm text-gray-600">
+            Soft • Fresh • Healthy • Delicious
           </p>
 
-          <p style={{ fontSize: "13px", color: "#665346" }}>
-            Biryani minimum order: 5 plates. Orders before 12:00 PM
-            for same-day collection, subject to availability.
+          <p className="mt-3 text-sm text-gray-600">
+            Fresh Homemade Idiyappam – Made with Love ❤️
           </p>
-        </header>
+        </div>
 
-        {/* VARIETIES OF IDIYAPPAM */}
+        {/* =================================================
+            ORDER FORM
+        ================================================= */}
 
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            Varieties of Idiyappam
-          </h2>
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
 
-          {IDIYAPPAM_MENU.map(renderMenuItem)}
-        </section>
+          {/* =================================================
+              CUSTOMER DETAILS
+          ================================================= */}
 
-        {/* GRAVY AND KURMA */}
-
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            Gravy & Kurma
-          </h2>
-
-          {GRAVY_MENU.map(renderMenuItem)}
-        </section>
-
-        {/* COMBOS */}
-
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            Combos
-          </h2>
-
-          {COMBO_MENU.map(renderMenuItem)}
-        </section>
-
-        {/* SIDES */}
-
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            Sides
-          </h2>
-
-          {SIDES_MENU.map(renderMenuItem)}
-        </section>
-
-        {/* PARTY MENU */}
-
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            Party Menu – Chennai Style Dum Biryani
-          </h2>
-
-          <p style={{ fontSize: "14px", color: "#665346" }}>
-            Minimum 5 plates. You can mix Lamb and Chicken Biryani.
-          </p>
-
-          {PARTY_MENU.map(renderMenuItem)}
-        </section>
-
-        {/* CART */}
-
-        <section style={styles.section}>
-          <h2 style={styles.heading}>Your Order</h2>
-
-          {selectedItems.length === 0 ? (
-            <p style={{ color: "#777" }}>
-              Your cart is empty. Please select items from the menu.
-            </p>
-          ) : (
-            selectedItems.map((item) => (
-              <div
-                key={item.name}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "10px",
-                  padding: "8px 0",
-                  borderBottom: "1px solid #eee5dc",
-                }}
-              >
-                <span>
-                  {item.name} x {item.quantity}
-                </span>
-
-                <strong>
-                  R{item.subtotal.toFixed(2)}
-                </strong>
-              </div>
-            ))
-          )}
-
-          <div style={{ marginTop: "14px", lineHeight: 1.8 }}>
-            <div>
-              Total Items: <strong>{itemCount}</strong>
-            </div>
-
-            <div>
-              Total Idiyappam Plates:{" "}
-              <strong>{idiyappamPlates}</strong>
-            </div>
-
-            {selectedPartyItems.length > 0 && (
-              <div>
-                Total Biryani Plates:{" "}
-                <strong>{partyPlateCount}</strong>
-              </div>
-            )}
-
-            <h2 style={{ color: "#8b3f16" }}>
-              Grand Total: R{total.toFixed(2)}
+          <section className="rounded-2xl bg-white p-5 shadow-md">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">
+              Customer Details
             </h2>
-          </div>
-        </section>
 
-        {/* COLLECTION DETAILS */}
+            <div className="space-y-4">
 
-        <section style={styles.section}>
-          <h2 style={styles.heading}>Collection Details</h2>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Name
+                </label>
 
-          <p style={{ fontWeight: "bold" }}>
-            Collection Address:
-          </p>
-
-          <p>{COLLECTION_ADDRESS}</p>
-
-          <a
-            href="https://www.google.com/maps/search/?api=1&query=Unit+23+Fairview+Crescent+Wood+County+Estate+Midrand+Johannesburg"
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              color: "#8b3f16",
-              fontWeight: "bold",
-            }}
-          >
-            View collection address on Google Maps
-          </a>
-
-          <label style={styles.label}>
-            Collection Date
-          </label>
-
-          <input
-            type="date"
-            value={collectionDate}
-            min={minimumCollectionDate()}
-            onChange={(event) => {
-              setCollectionDate(event.target.value);
-              setSubmittedOrderNumber("");
-              setWhatsappMessage("");
-            }}
-            style={styles.input}
-            required
-          />
-
-          <label style={styles.label}>
-            Collection Method
-          </label>
-
-          <label style={{ display: "block", margin: "12px 0" }}>
-            <input
-              type="radio"
-              name="collectionMethod"
-              value="Home collection"
-              checked={collectionMethod === "Home collection"}
-              onChange={(event) => {
-                setCollectionMethod(event.target.value as CollectionMethod);
-                setSubmittedOrderNumber("");
-                setWhatsappMessage("");
-              }}
-            />
-            {" "}Home collection
-          </label>
-
-          <label style={{ display: "block", margin: "12px 0" }}>
-            <input
-              type="radio"
-              name="collectionMethod"
-              value="Uber pickup"
-              checked={collectionMethod === "Uber pickup"}
-              onChange={(event) => {
-                setCollectionMethod(event.target.value as CollectionMethod);
-                setSubmittedOrderNumber("");
-                setWhatsappMessage("");
-              }}
-            />
-            {" "}Uber pickup
-          </label>
-
-          <p style={{ fontSize: "13px", color: "#665346" }}>
-            For Uber pickup, the customer must arrange the Uber driver
-            to collect from the address above. Uber charges are the
-            customer's responsibility.
-          </p>
-        </section>
-
-        {/* CUSTOMER DETAILS AND SUBMISSION */}
-
-        <form onSubmit={submitOrder}>
-          <section style={styles.section}>
-            <h2 style={styles.heading}>Customer Details</h2>
-
-            <label style={styles.label}>
-              Full Name
-            </label>
-
-            <input
-              type="text"
-              value={customer}
-              onChange={(event) => {
-                setCustomer(event.target.value);
-                setSubmittedOrderNumber("");
-                setWhatsappMessage("");
-              }}
-              placeholder="Enter your full name"
-              style={styles.input}
-              required
-            />
-
-            <label style={styles.label}>
-              WhatsApp / Contact Number
-            </label>
-
-            <input
-              type="tel"
-              value={phone}
-              onChange={(event) => {
-                setPhone(event.target.value);
-                setSubmittedOrderNumber("");
-                setWhatsappMessage("");
-              }}
-              placeholder="e.g. 0712345678"
-              maxLength={10}
-              style={styles.input}
-              required
-            />
-
-            {error && (
-              <div
-                role="alert"
-                style={{
-                  background: "#ffeded",
-                  color: "#a00000",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  marginBottom: "14px",
-                }}
-              >
-                {error}
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(event) =>
+                    setCustomerName(event.target.value)
+                  }
+                  placeholder="Enter your name"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading || Boolean(submittedOrderNumber)}
-              style={{
-                ...styles.button,
-                width: "100%",
-                padding: "15px",
-                fontSize: "17px",
-                opacity:
-                  loading || submittedOrderNumber ? 0.6 : 1,
-              }}
-            >
-              {loading
-                ? "Submitting Order..."
-                : submittedOrderNumber
-                ? "Order Submitted"
-                : "Submit Order"}
-            </button>
-          </section>
-        </form>
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Phone Number
+                </label>
 
-        {/* WHATSAPP NOTIFICATIONS */}
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={customerPhone}
+                  onChange={(event) =>
+                    handlePhoneChange(event.target.value)
+                  }
+                  placeholder="10-digit phone number"
+                  maxLength={10}
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
+                />
 
-        {submittedOrderNumber && (
-          <section style={styles.section}>
-            <div style={{ textAlign: "center" }}>
-              <h2 style={{ color: "#218838" }}>
-                Your Order Has Been Saved!
-              </h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter exactly 10 digits. Do not include +27.
+                </p>
+              </div>
 
-              <p>Your unique order number is:</p>
-
-              <h1
-                style={{
-                  color: "#8b3f16",
-                  fontSize: "36px",
-                }}
-              >
-                {submittedOrderNumber}
-              </h1>
-
-              <p>
-                Please send your order details to Annai Foods on WhatsApp.
-              </p>
-
-              {WHATSAPP_NUMBERS.map((number) => (
-                <a
-                  key={number}
-                  href={`https://wa.me/${number}?text=${encodeURIComponent(
-                    whatsappMessage
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: "block",
-                    background: "#25D366",
-                    color: "#ffffff",
-                    textDecoration: "none",
-                    padding: "14px",
-                    borderRadius: "9px",
-                    fontWeight: "bold",
-                    marginTop: "12px",
-                  }}
-                >
-                  Send Order on WhatsApp -{" "}
-                  {number === "27651188768"
-                    ? "065 118 8768"
-                    : "060 710 4011"}
-                </a>
-              ))}
-
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "#665346",
-                  marginTop: "15px",
-                }}
-              >
-                Please press Send in WhatsApp to deliver your order
-                notification. Your order is saved in our system, but
-                the WhatsApp messages must be sent manually.
-              </p>
             </div>
           </section>
-        )}
 
-        {/* ======================================
-            ANNAI FOODS CUSTOMER REVIEW SYSTEM
-        ====================================== */}
+          {/* =================================================
+              MENU
+          ================================================= */}
 
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            Share Your Experience
-          </h2>
+          <section className="rounded-2xl bg-white p-5 shadow-md">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">
+              Menu
+            </h2>
 
-          <p style={{ color: "#665346", lineHeight: 1.6 }}>
-            Have you enjoyed our food? We would love to hear from you!
-            Please rate your experience and share your feedback.
-          </p>
+            <div className="space-y-3">
 
-          <form onSubmit={submitReview}>
-            <label style={styles.label}>
-              Your Name
-            </label>
+              {MENU.map((item) => {
+                const quantity =
+                  quantities[item.name] || 0;
 
-            <input
-              type="text"
-              value={reviewName}
-              onChange={(event) => setReviewName(event.target.value)}
-              placeholder="Enter your name"
-              maxLength={80}
-              style={styles.input}
-              required
-            />
-
-            <label style={styles.label}>
-              Your Rating
-            </label>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                margin: "12px 0 18px",
-              }}
-            >
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  aria-label={`Rate ${star} out of 5 stars`}
-                  aria-pressed={reviewRating === star}
-                  onClick={() => setReviewRating(star)}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    padding: "2px",
-                    cursor: "pointer",
-                    fontSize: "34px",
-                    color:
-                      star <= reviewRating ? "#E6A323" : "#d5d5d5",
-                  }}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
-
-            <p
-              style={{
-                color: "#8b3f16",
-                fontWeight: "bold",
-                marginTop: "-10px",
-              }}
-            >
-              {reviewRating} out of 5 stars
-            </p>
-
-            <label style={styles.label}>
-              Your Feedback
-            </label>
-
-            <textarea
-              value={reviewText}
-              onChange={(event) => setReviewText(event.target.value)}
-              placeholder="Tell us what you enjoyed about your Annai Foods experience..."
-              maxLength={1000}
-              rows={5}
-              required
-              style={{
-                ...styles.input,
-                resize: "vertical",
-                fontFamily: "Arial, sans-serif",
-              }}
-            />
-
-            <p
-              style={{
-                fontSize: "12px",
-                color: "#806d5f",
-                textAlign: "right",
-                marginTop: "-10px",
-              }}
-            >
-              {reviewText.length}/1000 characters
-            </p>
-
-            {reviewError && (
-              <div
-                role="alert"
-                style={{
-                  background: "#ffeded",
-                  color: "#a00000",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  marginBottom: "14px",
-                }}
-              >
-                {reviewError}
-              </div>
-            )}
-
-            {reviewMessage && (
-              <div
-                role="status"
-                style={{
-                  background: "#eaf7ed",
-                  color: "#216b35",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  marginBottom: "14px",
-                  lineHeight: 1.5,
-                }}
-              >
-                {reviewMessage}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={reviewLoading}
-              style={{
-                ...styles.button,
-                width: "100%",
-                padding: "14px",
-                opacity: reviewLoading ? 0.6 : 1,
-              }}
-            >
-              {reviewLoading
-                ? "Submitting Review..."
-                : "Submit My Review"}
-            </button>
-          </form>
-        </section>
-
-        {/* ======================================
-            APPROVED CUSTOMER REVIEWS
-        ====================================== */}
-
-        <section style={styles.section}>
-          <h2 style={styles.heading}>
-            What Our Customers Say
-          </h2>
-
-          <p style={{ color: "#665346", marginTop: "-5px" }}>
-            Real feedback shared by our customers.
-          </p>
-
-          {approvedReviews.length > 0 && (
-            <div>
-              {approvedReviews.map((review) => (
-                <article
-                  key={review.id}
-                  style={{
-                    borderBottom: "1px solid #eee5dc",
-                    padding: "15px 0",
-                  }}
-                >
+                return (
                   <div
-                    style={{
-                      color: "#E6A323",
-                      fontSize: "22px",
-                      letterSpacing: "2px",
-                    }}
-                    aria-label={`${review.rating} out of 5 stars`}
+                    key={item.name}
+                    className="rounded-xl border border-gray-200 p-4"
                   >
-                    {"★".repeat(review.rating)}
-                    <span style={{ color: "#d5d5d5" }}>
-                      {"★".repeat(5 - review.rating)}
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                      <div className="flex-1">
+                        <h3 className="font-bold text-gray-900">
+                          {item.name}
+                        </h3>
+
+                        {item.description && (
+                          <p className="mt-1 text-sm text-gray-500">
+                            {item.description}
+                          </p>
+                        )}
+
+                        <p className="mt-2 font-semibold text-orange-700">
+                          R{item.price}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            decreaseQuantity(item.name)
+                          }
+                          disabled={quantity === 0}
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-xl font-bold text-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          −
+                        </button>
+
+                        <span className="min-w-[28px] text-center text-lg font-bold">
+                          {quantity}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            increaseQuantity(item.name)
+                          }
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-600 text-xl font-bold text-white"
+                        >
+                          +
+                        </button>
+
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })}
+
+            </div>
+          </section>
+
+          {/* =================================================
+              CART SUMMARY
+          ================================================= */}
+
+          <section className="rounded-2xl bg-white p-5 shadow-md">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">
+              Order Summary
+            </h2>
+
+            {cartItems.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                No items selected yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+
+                {cartItems.map((item) => (
+                  <div
+                    key={item.name}
+                    className="flex justify-between gap-4 border-b border-gray-100 pb-2"
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {item.name}
+                      </p>
+
+                      <p className="text-sm text-gray-500">
+                        {item.quantity} × R{item.price}
+                      </p>
+                    </div>
+
+                    <p className="font-bold text-gray-900">
+                      R{item.quantity * item.price}
+                    </p>
+                  </div>
+                ))}
+
+                <div className="space-y-2 pt-3 text-sm">
+
+                  <div className="flex justify-between">
+                    <span>
+                      Total Selected Items
+                    </span>
+
+                    <span className="font-semibold">
+                      {totalSelectedItems}
                     </span>
                   </div>
 
-                  <p
-                    style={{
-                      lineHeight: 1.6,
-                      margin: "8px 0",
-                      whiteSpace: "pre-wrap",
-                    }}
-                  >
-                    {review.review}
-                  </p>
+                  <div className="flex justify-between">
+                    <span>
+                      Total Idiyappam Plates
+                    </span>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "8px",
-                      flexWrap: "wrap",
-                      fontSize: "13px",
-                      color: "#806d5f",
-                    }}
-                  >
-                    <strong>
-                      {review.display_name || "Annai Foods Customer"}
-                    </strong>
+                    <span className="font-semibold">
+                      {totalIdiyappamPlates}
+                    </span>
+                  </div>
+
+                  {totalPartyBiryaniPlates > 0 && (
+                    <div className="flex justify-between">
+                      <span>
+                        Party Biryani Plates
+                      </span>
+
+                      <span className="font-semibold">
+                        {totalPartyBiryaniPlates}
+                      </span>
+                    </div>
+                  )}
+
+                </div>
+
+                <div className="mt-4 flex justify-between border-t-2 border-orange-200 pt-4 text-xl">
+                  <span className="font-extrabold">
+                    GRAND TOTAL
+                  </span>
+
+                  <span className="font-extrabold text-orange-700">
+                    R{totalAmount}
+                  </span>
+                </div>
+
+              </div>
+            )}
+          </section>
+
+          {/* =================================================
+              COLLECTION DETAILS
+          ================================================= */}
+
+          <section className="rounded-2xl bg-white p-5 shadow-md">
+            <h2 className="mb-4 text-xl font-bold text-gray-900">
+              Collection Details
+            </h2>
+
+            <div className="space-y-5">
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Collection Date
+                </label>
+
+                <input
+                  type="date"
+                  min={getMinimumCollectionDate()}
+                  value={collectionDate}
+                  onChange={(event) =>
+                    setCollectionDate(event.target.value)
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
+                />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Same-day collection is available only before
+                  12:00 PM Johannesburg time.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                  Collection Method
+                </label>
+
+                <div className="space-y-3">
+
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3">
+                    <input
+                      type="radio"
+                      name="collectionMethod"
+                      value="Home collection"
+                      checked={
+                        collectionMethod ===
+                        "Home collection"
+                      }
+                      onChange={() =>
+                        setCollectionMethod(
+                          "Home collection"
+                        )
+                      }
+                    />
 
                     <span>
-                      {new Date(review.created_at).toLocaleDateString(
-                        "en-ZA",
-                        { timeZone: "Africa/Johannesburg" }
-                      )}
+                      <span className="block font-semibold">
+                        Home collection
+                      </span>
+
+                      <span className="text-xs text-gray-500">
+                        {COLLECTION_ADDRESS}
+                      </span>
                     </span>
-                  </div>
-                </article>
-              ))}
+                  </label>
+
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3">
+                    <input
+                      type="radio"
+                      name="collectionMethod"
+                      value="Uber pickup"
+                      checked={
+                        collectionMethod ===
+                        "Uber pickup"
+                      }
+                      onChange={() =>
+                        setCollectionMethod(
+                          "Uber pickup"
+                        )
+                      }
+                    />
+
+                    <span>
+                      <span className="block font-semibold">
+                        Uber pickup
+                      </span>
+
+                      <span className="text-xs text-gray-500">
+                        Customer arranges Uber pickup.
+                      </span>
+                    </span>
+                  </label>
+
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          {/* =================================================
+              MINIMUM ORDER NOTICE
+          ================================================= */}
+
+          <section className="rounded-2xl border border-orange-200 bg-orange-100 p-4">
+            <p className="text-sm font-semibold text-orange-900">
+              Order requirements
+            </p>
+
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-orange-900">
+              <li>
+                Regular menu orders require a minimum of
+                5 Idiyappam plates.
+              </li>
+
+              <li>
+                Each combo counts as 2 Idiyappam plates.
+              </li>
+
+              <li>
+                Party biryani orders require a minimum of
+                5 biryani plates.
+              </li>
+            </ul>
+          </section>
+
+          {/* =================================================
+              ERROR
+          ================================================= */}
+
+          {errorMessage && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              {errorMessage}
             </div>
           )}
-        </section>
 
-        {/* FOOTER */}
+          {/* =================================================
+              SUCCESS
+          ================================================= */}
 
-        <footer
-          style={{
-            textAlign: "center",
-            padding: "20px",
-            color: "#806d5f",
-          }}
-        >
-          <strong>
-            Thank you for choosing Annai Foods!
-          </strong>
-        </footer>
+          {successMessage && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
+              {successMessage}
+
+              <p className="mt-2 font-normal">
+                WhatsApp has been opened for Annai Foods
+                order notification.
+              </p>
+            </div>
+          )}
+
+          {/* =================================================
+              SUBMIT
+          ================================================= */}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-2xl bg-orange-600 px-6 py-4 text-lg font-extrabold text-white shadow-lg transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading
+              ? "SUBMITTING ORDER..."
+              : "SUBMIT ORDER"}
+          </button>
+
+        </form>
+
+        {/* =================================================
+            FOOTER
+        ================================================= */}
+
+        <div className="mt-8 pb-8 text-center text-sm text-gray-500">
+          <p className="font-semibold">
+            ANNAI FOODS ❤️
+          </p>
+
+          <p className="mt-1">
+            Fresh Homemade Idiyappam – Made with Love
+          </p>
+        </div>
 
       </div>
     </main>
