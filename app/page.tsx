@@ -559,6 +559,7 @@ export default function Home() {
       setQuantities({});
       setCollectionMethod("Home collection");
       setCollectionDate(getMinimumCollectionDate());
+
     } catch (error) {
       console.error(error);
 
@@ -567,6 +568,7 @@ export default function Home() {
           ? error.message
           : "Something went wrong while submitting your order."
       );
+
     } finally {
       setLoading(false);
     }
@@ -578,6 +580,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-orange-50 px-4 py-6">
+
       <div className="mx-auto max-w-3xl">
 
         {/* =================================================
@@ -585,6 +588,7 @@ export default function Home() {
         ================================================= */}
 
         <div className="mb-6 rounded-2xl bg-white p-6 text-center shadow-md">
+
           <h1 className="text-3xl font-extrabold tracking-wide text-orange-700">
             ANNAI FOODS
           </h1>
@@ -600,6 +604,7 @@ export default function Home() {
           <p className="mt-3 text-sm text-gray-600">
             Fresh Homemade Idiyappam – Made with Love ❤️
           </p>
+
         </div>
 
         {/* =================================================
@@ -616,6 +621,7 @@ export default function Home() {
           ================================================= */}
 
           <section className="rounded-2xl bg-white p-5 shadow-md">
+
             <h2 className="mb-4 text-xl font-bold text-gray-900">
               Customer Details
             </h2>
@@ -623,6 +629,7 @@ export default function Home() {
             <div className="space-y-4">
 
               <div>
+
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
                   Name
                 </label>
@@ -636,9 +643,11 @@ export default function Home() {
                   placeholder="Enter your name"
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-orange-500"
                 />
+
               </div>
 
               <div>
+
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
                   Phone Number
                 </label>
@@ -658,9 +667,11 @@ export default function Home() {
                 <p className="mt-1 text-xs text-gray-500">
                   Enter exactly 10 digits. Do not include +27.
                 </p>
+
               </div>
 
             </div>
+
           </section>
 
           {/* =================================================
@@ -668,6 +679,7 @@ export default function Home() {
           ================================================= */}
 
           <section className="rounded-2xl bg-white p-5 shadow-md">
+
             <h2 className="mb-4 text-xl font-bold text-gray-900">
               Menu
             </h2>
@@ -675,6 +687,7 @@ export default function Home() {
             <div className="space-y-3">
 
               {MENU.map((item) => {
+
                 const quantity =
                   quantities[item.name] || 0;
 
@@ -683,9 +696,11 @@ export default function Home() {
                     key={item.name}
                     className="rounded-xl border border-gray-200 p-4"
                   >
+
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                       <div className="flex-1">
+
                         <h3 className="font-bold text-gray-900">
                           {item.name}
                         </h3>
@@ -699,6 +714,7 @@ export default function Home() {
                         <p className="mt-2 font-semibold text-orange-700">
                           R{item.price}
                         </p>
+
                       </div>
 
                       <div className="flex items-center gap-3">
@@ -731,11 +747,13 @@ export default function Home() {
                       </div>
 
                     </div>
+
                   </div>
                 );
               })}
 
             </div>
+
           </section>
 
           {/* =================================================
@@ -743,23 +761,30 @@ export default function Home() {
           ================================================= */}
 
           <section className="rounded-2xl bg-white p-5 shadow-md">
+
             <h2 className="mb-4 text-xl font-bold text-gray-900">
               Order Summary
             </h2>
 
             {cartItems.length === 0 ? (
+
               <p className="text-sm text-gray-500">
                 No items selected yet.
               </p>
+
             ) : (
+
               <div className="space-y-3">
 
                 {cartItems.map((item) => (
+
                   <div
                     key={item.name}
                     className="flex justify-between gap-4 border-b border-gray-100 pb-2"
                   >
+
                     <div>
+
                       <p className="font-semibold text-gray-800">
                         {item.name}
                       </p>
@@ -767,17 +792,21 @@ export default function Home() {
                       <p className="text-sm text-gray-500">
                         {item.quantity} × R{item.price}
                       </p>
+
                     </div>
 
                     <p className="font-bold text-gray-900">
                       R{item.quantity * item.price}
                     </p>
+
                   </div>
+
                 ))}
 
                 <div className="space-y-2 pt-3 text-sm">
 
                   <div className="flex justify-between">
+
                     <span>
                       Total Selected Items
                     </span>
@@ -785,9 +814,11 @@ export default function Home() {
                     <span className="font-semibold">
                       {totalSelectedItems}
                     </span>
+
                   </div>
 
                   <div className="flex justify-between">
+
                     <span>
                       Total Idiyappam Plates
                     </span>
@@ -795,10 +826,13 @@ export default function Home() {
                     <span className="font-semibold">
                       {totalIdiyappamPlates}
                     </span>
+
                   </div>
 
                   {totalPartyBiryaniPlates > 0 && (
+
                     <div className="flex justify-between">
+
                       <span>
                         Party Biryani Plates
                       </span>
@@ -806,12 +840,15 @@ export default function Home() {
                       <span className="font-semibold">
                         {totalPartyBiryaniPlates}
                       </span>
+
                     </div>
+
                   )}
 
                 </div>
 
                 <div className="mt-4 flex justify-between border-t-2 border-orange-200 pt-4 text-xl">
+
                   <span className="font-extrabold">
                     GRAND TOTAL
                   </span>
@@ -819,10 +856,13 @@ export default function Home() {
                   <span className="font-extrabold text-orange-700">
                     R{totalAmount}
                   </span>
+
                 </div>
 
               </div>
+
             )}
+
           </section>
 
           {/* =================================================
@@ -830,6 +870,7 @@ export default function Home() {
           ================================================= */}
 
           <section className="rounded-2xl bg-white p-5 shadow-md">
+
             <h2 className="mb-4 text-xl font-bold text-gray-900">
               Collection Details
             </h2>
@@ -837,6 +878,7 @@ export default function Home() {
             <div className="space-y-5">
 
               <div>
+
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
                   Collection Date
                 </label>
@@ -855,9 +897,11 @@ export default function Home() {
                   Same-day collection is available only before
                   12:00 PM Johannesburg time.
                 </p>
+
               </div>
 
               <div>
+
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   Collection Method
                 </label>
@@ -865,6 +909,7 @@ export default function Home() {
                 <div className="space-y-3">
 
                   <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3">
+
                     <input
                       type="radio"
                       name="collectionMethod"
@@ -881,6 +926,7 @@ export default function Home() {
                     />
 
                     <span>
+
                       <span className="block font-semibold">
                         Home collection
                       </span>
@@ -888,10 +934,13 @@ export default function Home() {
                       <span className="text-xs text-gray-500">
                         {COLLECTION_ADDRESS}
                       </span>
+
                     </span>
+
                   </label>
 
                   <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-3">
+
                     <input
                       type="radio"
                       name="collectionMethod"
@@ -908,6 +957,7 @@ export default function Home() {
                     />
 
                     <span>
+
                       <span className="block font-semibold">
                         Uber pickup
                       </span>
@@ -915,13 +965,17 @@ export default function Home() {
                       <span className="text-xs text-gray-500">
                         Customer arranges Uber pickup.
                       </span>
+
                     </span>
+
                   </label>
 
                 </div>
+
               </div>
 
             </div>
+
           </section>
 
           {/* =================================================
@@ -929,11 +983,13 @@ export default function Home() {
           ================================================= */}
 
           <section className="rounded-2xl border border-orange-200 bg-orange-100 p-4">
+
             <p className="text-sm font-semibold text-orange-900">
               Order requirements
             </p>
 
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-orange-900">
+
               <li>
                 Regular menu orders require a minimum of
                 5 Idiyappam plates.
@@ -947,7 +1003,9 @@ export default function Home() {
                 Party biryani orders require a minimum of
                 5 biryani plates.
               </li>
+
             </ul>
+
           </section>
 
           {/* =================================================
@@ -955,9 +1013,11 @@ export default function Home() {
           ================================================= */}
 
           {errorMessage && (
+
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
               {errorMessage}
             </div>
+
           )}
 
           {/* =================================================
@@ -965,14 +1025,18 @@ export default function Home() {
           ================================================= */}
 
           {successMessage && (
+
             <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
+
               {successMessage}
 
               <p className="mt-2 font-normal">
                 WhatsApp has been opened for Annai Foods
                 order notification.
               </p>
+
             </div>
+
           )}
 
           {/* =================================================
@@ -984,9 +1048,11 @@ export default function Home() {
             disabled={loading}
             className="w-full rounded-2xl bg-orange-600 px-6 py-4 text-lg font-extrabold text-white shadow-lg transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
+
             {loading
               ? "SUBMITTING ORDER..."
               : "SUBMIT ORDER"}
+
           </button>
 
         </form>
@@ -996,6 +1062,7 @@ export default function Home() {
         ================================================= */}
 
         <div className="mt-8 pb-8 text-center text-sm text-gray-500">
+
           <p className="font-semibold">
             ANNAI FOODS ❤️
           </p>
@@ -1003,9 +1070,11 @@ export default function Home() {
           <p className="mt-1">
             Fresh Homemade Idiyappam – Made with Love
           </p>
+
         </div>
 
       </div>
+
     </main>
   );
 }
