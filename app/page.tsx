@@ -299,8 +299,7 @@ export default function Home() {
       return cartItems.reduce(
         (total, item) => {
           if (
-            item.type ===
-            "idiyappam"
+            item.type === "idiyappam"
           ) {
             return (
               total +
@@ -309,8 +308,7 @@ export default function Home() {
           }
 
           if (
-            item.type ===
-            "combo"
+            item.type === "combo"
           ) {
             return (
               total +
@@ -329,8 +327,7 @@ export default function Home() {
       return cartItems.reduce(
         (total, item) => {
           if (
-            item.type ===
-            "party"
+            item.type === "party"
           ) {
             return (
               total +
@@ -789,7 +786,8 @@ export default function Home() {
                   }
                   className={`flex items-center justify-between gap-4 py-5 ${
                     index <
-                    items.length - 1
+                    items.length -
+                      1
                       ? "border-b border-gray-200"
                       : ""
                   }`}
@@ -950,7 +948,7 @@ export default function Home() {
           }
         >
 
-          {/* IDIYAPPAM */}
+          {/* REGULAR MENU */}
 
           {renderMenuSection(
             "IDYAPPAM",
@@ -1001,7 +999,8 @@ export default function Home() {
               ORDER SUMMARY
             </h2>
 
-            {cartItems.length === 0 ? (
+            {cartItems.length ===
+            0 ? (
 
               <p className="text-[17px] text-gray-500">
                 No items selected.
@@ -1067,6 +1066,7 @@ export default function Home() {
                   {totalPartyBiryaniPlates >
                     0 && (
                     <div className="flex justify-between">
+
                       <span>
                         Party Biryani Plates
                       </span>
@@ -1074,6 +1074,7 @@ export default function Home() {
                       <strong>
                         {totalPartyBiryaniPlates}
                       </strong>
+
                     </div>
                   )}
 
@@ -1092,6 +1093,7 @@ export default function Home() {
                 </div>
 
               </div>
+
             )}
 
           </section>
