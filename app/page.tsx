@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
@@ -76,7 +75,7 @@ const COMBO_MENU: MenuItem[] = [
     name: "Combo 2",
     price: 125,
     type: "combo",
-    description: "2 plates Idiyappam + Veg White Kurma + Coconut Milk",
+    description: "2 plates Idiyappam + Veg White Kurma",
   },
 ];
 
