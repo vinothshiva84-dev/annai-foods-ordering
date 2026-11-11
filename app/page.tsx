@@ -455,8 +455,19 @@ export default function Home() {
       return "Please select at least one menu item.";
     }
 
+    // Combo 1 or Combo 2 can be ordered on their own.
+    // The 5-plate minimum still applies to normal Idiyappam orders.
+    const hasCombo = selectedRegularItems.some(
+      (item) => item.type === "combo"
+    );
+
+    const hasRegularIdiyappam = selectedRegularItems.some(
+      (item) => item.type === "idiyappam"
+    );
+
     if (
-      selectedRegularItems.length > 0 &&
+      hasRegularIdiyappam &&
+      !hasCombo &&
       idiyappamPlates < 5
     ) {
       return "The minimum regular order is 5 plates of Idiyappam. Combos count as 2 plates each.";
